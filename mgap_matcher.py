@@ -697,11 +697,44 @@ class MGAPMatcher:
         return data.get("models", [])
 
     def _try_load_llm(self):
+        """
+        v4.5.1: явно используем LLMClient с тем же tracker-приоритетом
+        что и в основном pipeline (generator role → Groq/Mash first).
+        """
         try:
             from llm_client_v_4 import LLMClient
+            from api_usage_tracker import tracker
+            # Проверяем что провайдеры для generator доступны
+            providers = tracker.get_providers_for_role("generator")
+            if providers:
+                logger.info(
+                    f"MGAPMatcher LLM: primary provider = "
+                    f"{providers[0].label} ({providers[0].provider})"
+                )
+            else:
+                logger.warning("MGAPMatcher: no generator providers in tracker")
             return LLMClient()
-        except Exception:
+        except Exception as e:
+            logger.warning(f"MGAPMatcher: LLMClient unavailable — {e}")
             return None
+
+    def _llm_generate(self, prompt: str, purpose: str = "mgap") -> tuple[str, str]:
+        """
+        Обёртка вокруг LLMClient.generate() с логированием модели.
+        Возвращает (text, model_name).
+        """
+        if not self.llm:
+            return "", "none"
+        try:
+            text, model = self.llm.generate(prompt)
+            if text and not text.startswith("[Generator error]"):
+                logger.info(f"MGAPMatcher [{purpose}]: ✓ {model.split('/')[-1]}")
+                return text, model
+            logger.warning(f"MGAPMatcher [{purpose}]: LLM failed — {text[:80]}")
+            return "", model
+        except Exception as e:
+            logger.warning(f"MGAPMatcher [{purpose}]: exception — {e}")
+            return "", "error"
 
     def _load_artifact(self, artifact_id: str) -> Optional[Dict]:
         for base in [self.artifacts_dir, Path(".")]:
@@ -723,11 +756,13 @@ class MGAPMatcher:
     ) -> List[Dict[str, Any]]:
         artifact = self._load_artifact(artifact_id)
         if not artifact:
-            return [{"error": f"Artifact '{artifact_id}' not found", "artifact_id": artifact_id}]
+            return [{"error": f"Artifact '{artifact_id}' not found",
+                     "artifact_id": artifact_id}]
 
         four_d = _extract_art_four_d(artifact)
         if not four_d:
-            return [{"error": "No four_d_matrix — run migrate_to_v42.py first", "artifact_id": artifact_id}]
+            return [{"error": "No four_d_matrix — run migrate_to_v42.py first",
+                     "artifact_id": artifact_id}]
 
         sim     = _extract_art_sim(artifact)
         ver     = artifact.get("data", {}).get("ver", {})
@@ -742,7 +777,7 @@ class MGAPMatcher:
             candidates = [m for m in candidates
                           if _norm_math_type(m.get("math_type", "")) == art_math]
         if not candidates:
-            return [{"error": f"No matching models (math_type={art_math}, math_type_only={math_type_only})",
+            return [{"error": f"No matching models (math_type={art_math})",
                      "artifact_id": artifact_id}]
 
         scored: List[Tuple[float, Dict]] = []
@@ -785,21 +820,20 @@ class MGAPMatcher:
             tau_max=thresholds["tau_robustness"],
             p_crit=0.37, p=flat.get("p", 0.5),
         )
+        # blind_spot через LLM (Groq/Mash first)
         blind_spot   = self._improve_blind_spot(raw_blind, model)
         code_snippet = _generate_code(model, thresholds, flat)
         calculation  = _calculate_example(model, thresholds)
         artifact_calc    = _calculate_with_artifact_params(model, flat, thresholds)
         verdict      = _build_verdict(model, calculation, artifact_calc, resonance, thresholds)
 
-        art_hypothesis = artifact.get("data", {}).get("gen", {}).get("hypothesis", "")
-        similarity_exp = _build_similarity_explanation(
-            model, flat, thresholds, art_hypothesis, resonance
-        )
+        # v4.5.1: опциональный LLM-анализ совместимости
+        llm_analysis = self._llm_analyze_match(artifact, model, resonance, flat, thresholds)
 
         gen      = artifact.get("data", {}).get("gen", {})
         archivist = artifact.get("archivist") or {}
 
-        return {
+        result = {
             "artifact_id":    artifact_id,
             "model_id":       model.get("id"),
             "model_name":     model.get("name"),
@@ -828,15 +862,16 @@ class MGAPMatcher:
             },
             "calculation":        calculation,
             "artifact_check":     artifact_calc,
-            "similarity":         similarity_exp,
             "verdict":            verdict,
             "generated_at":  __import__("datetime").datetime.utcnow().isoformat() + "Z",
         }
+        if llm_analysis:
+            result["llm_analysis"] = llm_analysis
+        return result
 
     def _translate_params(self, flat: Dict, thresholds: Dict, model: Dict) -> Dict:
         tmap   = model.get("translation_map") or {}
         result: Dict = {}
-        # Для Изинга — ключевые параметры T и h, а не tau
         mt = _norm_math_type(model.get("math_type", ""))
         if mt == "ising":
             key_params = [("T", flat["T"]), ("K", flat["K"]), ("eta", flat["eta"])]
@@ -862,6 +897,7 @@ class MGAPMatcher:
         return result
 
     def _improve_blind_spot(self, template: str, model: Dict) -> str:
+        """v4.5.1: использует тот же LLM-приоритет что и generator pipeline."""
         if not self.llm or not template:
             return template
         prompt = (
@@ -869,13 +905,66 @@ class MGAPMatcher:
             f"(отрасль: {model.get('logia')}). Сохрани все числа. "
             f"Верни ТОЛЬКО улучшенный текст, одним абзацем:\n{template}"
         )
-        try:
-            improved, _ = self.llm.generate(prompt)
-            if improved and len(improved) > 20 and not improved.startswith("[Generator error]"):
-                return improved.strip()
-        except Exception:
-            pass
+        improved, model_name = self._llm_generate(prompt, purpose="blind_spot")
+        if improved and len(improved) > 20:
+            return improved.strip()
         return template
+
+    def _llm_analyze_match(
+        self,
+        artifact: Dict,
+        model: Dict,
+        resonance: float,
+        flat: Dict,
+        thresholds: Dict,
+    ) -> Optional[Dict]:
+        """
+        v4.5.1: LLM-анализ совместимости инварианта с отраслевой моделью.
+        Вызывается только если resonance >= 0.5 (экономия токенов).
+        """
+        if not self.llm or resonance < 0.5:
+            return None
+
+        gen = artifact.get("data", {}).get("gen", {})
+        hypothesis = gen.get("hypothesis", "")[:300]
+        if not hypothesis:
+            return None
+
+        prompt = f"""Ты — аналитик HX-AM. Оцени применимость инварианта к отраслевой модели.
+
+Инвариант: {hypothesis}
+Домен: {artifact.get("data", {}).get("domain", "?")}
+Резонанс 4D: {resonance:.3f}
+
+Модель: {model.get("name")} ({model.get("logia")})
+math_type: {model.get("math_type")}
+Программы: {", ".join(model.get("programs", [])[:3])}
+Параметры артефакта: K={flat.get("K"):.3f}, η={flat.get("eta"):.3f}, τ={flat.get("tau"):.3f}
+Критические пороги: η_crit={thresholds["eta_critical"]:.3f}, τ_crit={thresholds["tau_robustness"]:.3f}
+
+Дай КРАТКИЙ анализ (2-3 предложения) на русском:
+1. Почему инвариант применим к данной модели
+2. Главный риск при внедрении
+3. Конкретное действие для разработчика
+
+Верни ТОЛЬКО JSON:
+{{"why_applicable": "...", "main_risk": "...", "dev_action": "...", "confidence": 0.0}}"""
+
+        text, model_used = self._llm_generate(prompt, purpose="match_analysis")
+        if not text:
+            return None
+
+        import re
+        cleaned = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
+        match = re.search(r"\{[\s\S]*\}", cleaned)
+        if not match:
+            return None
+        try:
+            result = json.loads(match.group(0))
+            result["_model"] = model_used.split("/")[-1] if model_used else "?"
+            return result
+        except Exception:
+            return None
 
     def match_batch(
         self,

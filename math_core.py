@@ -26,7 +26,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy.spatial.distance import cosine as scipy_cosine
 
 try:
     import nolds
@@ -552,6 +551,15 @@ class ResonanceMatcher:
         self._meta:    List[Dict]       = []
         self._load_index()
 
+    @staticmethod
+    def _safe_cosine(a: np.ndarray, b: np.ndarray) -> float:
+        dot = np.dot(a, b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0.0 or norm_b == 0.0:
+            return 1.0   # максимальное расстояние для нулевых векторов
+        return 1.0 - dot / (norm_a * norm_b)
+
     def _load_index(self):
         if not self.index_path.exists():
             return
@@ -615,11 +623,17 @@ class ResonanceMatcher:
         return sorted(results, key=lambda x: -x["4d_resonance"])[:top_k]
 
     def _res(self, a: np.ndarray, b: np.ndarray) -> float:
-        if a.shape != b.shape: return 0.0
-        try: cos = 1.0 - float(scipy_cosine(a, b))
-        except Exception: cos = 0.0
+        if a.shape != b.shape:
+            return 0.0
+        try:
+            # _safe_cosine возвращает косинусное расстояние, затем преобразуем в сходство
+            cos_sim = 1.0 - self._safe_cosine(a, b)
+        except Exception:
+            cos_sim = 0.0
         euc = 1.0 - float(np.linalg.norm(a - b)) / max(float(np.sqrt(a.shape[0])), 1e-9)
-        return round(cos * 0.6 + euc * 0.4, 3)
+        if np.isnan(cos_sim) or np.isnan(euc):
+            return 0.0
+        return round(cos_sim * 0.6 + euc * 0.4, 3)
 
 
 # ══════════════════════════════════════════════

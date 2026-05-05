@@ -387,6 +387,8 @@ def _norm_translation(translation: Any) -> Tuple[dict, List[str]]:
         else:
             return {"survival": "UNKNOWN"}, [f"translation type={type(translation).__name__}→empty"]
 
+    assert isinstance(translation, dict), f"translation should be dict, got {type(translation)}"
+
     result, alias_repairs = _resolve_aliases(translation, TRANSLATION_ALIASES)
     repairs.extend(alias_repairs)
 

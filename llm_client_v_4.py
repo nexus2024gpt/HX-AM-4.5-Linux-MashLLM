@@ -103,7 +103,7 @@ class LLMClient:
         }
 
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=60)
+            resp = requests.post(url, json=payload, headers=headers, timeout=120)
             resp.raise_for_status()
             rj = resp.json()
             content = rj["choices"][0]["message"]["content"]
