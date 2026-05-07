@@ -94,8 +94,12 @@ class PipelineGuard:
                 f"Hypothesis missing or critically short after normalization: '{hypothesis[:60]}'"
             )
 
-        # b_sync должен уже быть float после нормализатора
         b_sync = gen.get("b_sync")
+        if b_sync is None:
+            return ValidationResult(
+                False, FailureCode.GEN_INVALID_B_SYNC,
+                f"b_sync is None after normalization (model: {model})"
+            )
         try:
             b = float(b_sync)
             if not (0.0 <= b <= 1.0):
