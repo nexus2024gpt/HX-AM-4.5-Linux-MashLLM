@@ -25,6 +25,7 @@ from response_normalizer import normalize_gen, normalize_ver, repairs_summary
 from math_core import MathCore
 from mgap_matcher import MGAPMatcher
 
+from smart_router import smart_router
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("HXAM.v4.2")
@@ -52,6 +53,10 @@ question_gen = QuestionGenerator(space=semantic_space, graph=invariant_graph)
 logger.info("Инициализация MathCore...")
 math_core = MathCore(artifacts_dir="artifacts", four_d_index="artifacts/four_d_index.jsonl")
 logger.info("MathCore готов.")
+
+logger.info("Инициализация SmartRouter...")
+smart_router.init(tracker)
+logger.info("SmartRouter готов.")
 
 logger.info("Инициализация MGAPMatcher...")
 mgap_matcher = MGAPMatcher(
@@ -1219,6 +1224,50 @@ def mgap_batch_endpoint(
     except Exception as e:
         raise HTTPException(500, str(e))
 
+
+
+# ── Router Status Endpoints ─────────────────────────────────────────────────
+
+@app.get("/router/status")
+def router_status():
+    """
+    Статус SmartRouter: score, latency EMA, success rate,
+    состояние circuit breaker для каждого провайдера.
+    """
+    try:
+        from smart_router import smart_router
+        return smart_router.status()
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/router/check/{provider_id}")
+def router_force_check(provider_id: str):
+    """
+    Принудительная проверка доступности конкретного провайдера.
+    Сбрасывает circuit breaker если провайдер ответил.
+    """
+    try:
+        from smart_router import smart_router
+        ok = smart_router.force_health_check(provider_id)
+        return {
+            "provider_id": provider_id,
+            "healthy": ok,
+            "message": "OK — circuit reset" if ok else "Недоступен",
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/router/reset/{provider_id}")
+def router_reset_circuit(provider_id: str):
+    """Вручную сбросить circuit breaker для провайдера."""
+    try:
+        from smart_router import smart_router
+        smart_router._cb.reset(provider_id)
+        return {"ok": True, "provider_id": provider_id, "message": "Circuit reset"}
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 if __name__ == "__main__":
     import uvicorn

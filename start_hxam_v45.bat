@@ -1,8 +1,14 @@
 @echo off
-title Start HX-AM v4.5 Server
-echo [INFO] Opening Ubuntu terminal with HX-AM v4.5...
-:: Запускаем Ubuntu, выполняем команды и оставляем окно открытым
-start "HX-AM v4.5" ubuntu.exe run bash -c "cd ~/hxam && source venv/bin/activate && python hxam_v_4_server.py; echo 'Server stopped. Press Enter...'; read"
-echo [OK] Command sent. The server window should appear shortly.
-timeout /t 3 >nul
-exit
+chcp 65001 >nul
+title HX-AM v4.5
+
+echo ========================================
+echo    Starting HX-AM v4.5...
+echo ========================================
+
+wsl -d Ubuntu -u roman220877 --cd /home/roman220877/hxam bash -c "source venv/bin/activate && python hxam_v_4_server.py"
+
+echo.
+echo ========================================
+echo Server has stopped.
+pause

@@ -571,7 +571,7 @@ select.f-input option{background:#1e293b}
     </div>
 
     <div id="mgap-batch-bar" style="display:none;background:#f59e0b11;border:1px solid #f59e0b33;border-radius:8px;padding:.6rem 1rem;margin-bottom:.75rem;font-size:.8rem;color:#f59e0b">
-      ⏳ Batch запущен... это может занять 15–30 сек.
+      ⏳ Batch запущен...
     </div>
 
     <div class="mgap-grid">
@@ -1177,7 +1177,7 @@ function renderPipelineResult(data) {
         </div>` : ''}
       ${ver.refined_hypothesis ? `<div style="font-size:.75rem;background:#6366f111;border-radius:6px;padding:.35rem .5rem;margin-bottom:.3rem">
         <span style="color:#6366f1;font-size:.65rem;text-transform:uppercase;letter-spacing:.05em">Уточнённая гипотеза</span><br>
-        <span style="color:#cbd5e1">${escHtml(ver.refined_hypothesis.substring(0,200))}</span>
+        <span style="color:#cbd5e1">${escHtml(ver.refined_hypothesis)}</span>
       </div>` : ''}
       ${(ver.issues||[]).length
         ? `<div style="font-size:.75rem;color:#f87171">${ver.issues.slice(0,2).map(i=>'· '+escHtml(i)).join('<br>')}</div>`
