@@ -431,6 +431,9 @@ class MashLLMAdapter:
 
             models = self._parse_status_response(data)
             if models:
+                # Фильтруем модели с RAM > MASH_MAX_RAM_GB
+                max_ram = float(os.getenv("MASH_MAX_RAM_GB", "999"))
+                models = [m for m in models if m.ram_gb <= max_ram]
                 self._set_models(models)
                 self._healthy = True
                 ready_cnt = sum(1 for m in models if m.ready)
