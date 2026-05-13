@@ -25,6 +25,7 @@ MASH_SSE_TIMEOUT   = float(os.getenv("MASH_SSE_TIMEOUT", "30"))
 # Минимальный RAM для роли (GB). Модели ниже порога идут в конец очереди.
 MASH_MIN_RAM_GENERATOR = float(os.getenv("MASH_MIN_RAM_GENERATOR", "8"))
 MASH_MIN_RAM_VERIFIER  = float(os.getenv("MASH_MIN_RAM_VERIFIER",  "6"))
+MASH_MAX_RAM_GB = float(os.getenv("MASH_MAX_RAM_GB", "999"))
 
 _DEFAULT_GEN_HINTS = os.getenv(
     "MASH_GEN_HINTS", "qwen,llama,mistral,phi,gemma,glm"
@@ -387,7 +388,8 @@ class MashLLMAdapter:
 
     def _get_ready_models(self) -> List[MashModel]:
         with self._cache_lock:
-            return [m for m in self._models.values() if m.ready]
+            ready = [m for m in self._models.values() if m.ready and m.ram_gb <= MASH_MAX_RAM_GB]
+        return ready
 
     def _update_model(self, model: MashModel):
         with self._cache_lock:
