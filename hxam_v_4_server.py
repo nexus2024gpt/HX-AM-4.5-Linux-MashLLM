@@ -26,6 +26,8 @@ from math_core import MathCore
 from mgap_matcher import MGAPMatcher
 
 from smart_router import smart_router
+from mash_llm_adapter import mash_adapter
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("HXAM.v4.2")
@@ -1224,6 +1226,64 @@ def mgap_batch_endpoint(
     except Exception as e:
         raise HTTPException(500, str(e))
 
+
+# ════════════════════════════════════════════════════════════════
+# ENDPOINTS — MashLLM Adapter (v4.5.2)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/mash/status")
+def mash_status():
+    """
+    Текущее состояние MashLLM адаптера.
+    Показывает все модели, их готовность, queue и load.
+    """
+    return mash_adapter.status_summary()
+
+
+@app.post("/mash/refresh")
+def mash_refresh():
+    """
+    Принудительное обновление кэша моделей MashLLM.
+    Полезно после перезагрузки/смены модели в Mesh.
+    """
+    try:
+        mash_adapter._refresh_from_status()
+        return {
+            "ok": True,
+            "message": "Кэш обновлён",
+            "status": mash_adapter.status_summary(),
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Ошибка обновления: {e}")
+
+
+@app.get("/mash/best")
+def mash_best_model(role: str = "generator"):
+    """
+    Возвращает оптимальную модель для роли без выполнения запроса.
+    Удобно для диагностики выбора модели.
+    """
+    model = mash_adapter.get_best_model(role=role)
+    if model is None:
+        return {
+            "ok":      False,
+            "role":    role,
+            "message": "Нет ready-моделей в MashLLM",
+            "healthy": mash_adapter.is_healthy(),
+        }
+    return {
+        "ok":    True,
+        "role":  role,
+        "model": {
+            "id":     model.id,
+            "name":   model.name,
+            "ready":  model.ready,
+            "queue":  model.queue_length,
+            "active": model.active_requests,
+            "load":   round(model.load, 3),
+            "score":  round(model.score(), 3),
+        },
+    }
 
 
 # ── Router Status Endpoints ─────────────────────────────────────────────────

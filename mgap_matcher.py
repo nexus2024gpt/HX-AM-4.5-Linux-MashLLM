@@ -698,18 +698,37 @@ class MGAPMatcher:
 
     def _try_load_llm(self):
         """
-        v4.5.1: явно используем LLMClient с тем же tracker-приоритетом
-        что и в основном pipeline (generator role → Groq/Mash first).
+        v4.5.2: приоритет – mesh-модели из адаптера.
+        Если адаптер здоров и есть ready-модели, создаём LLMClient,
+        который внутри будет использовать mesh через адаптер.
+        Иначе – полагаемся на трекер и облачные резервы.
         """
+        try:
+            from mash_llm_adapter import mash_adapter
+            if mash_adapter.is_healthy():
+                ready = mash_adapter.get_all_ready()
+                if ready:
+                    best = mash_adapter.get_best_model("generator")
+                    if best:
+                        logger.info(
+                            f"MGAPMatcher LLM: primary provider = "
+                            f"Mesh · {best.canonical_name} · Generator (mesh)"
+                        )
+                        from llm_client_v_4 import LLMClient
+                        # LLMClient внутри сам использует адаптер, так что просто возвращаем его
+                        return LLMClient()
+        except Exception as e:
+            logger.warning(f"MGAPMatcher: адаптер недоступен — {e}")
+
+        # Fallback: старый способ через трекер (облачные провайдеры)
         try:
             from llm_client_v_4 import LLMClient
             from api_usage_tracker import tracker
-            # Проверяем что провайдеры для generator доступны
             providers = tracker.get_providers_for_role("generator")
             if providers:
                 logger.info(
                     f"MGAPMatcher LLM: primary provider = "
-                    f"{providers[0].label} ({providers[0].provider})"
+                    f"{providers[0].label} ({providers[0].provider}) [fallback]"
                 )
             else:
                 logger.warning("MGAPMatcher: no generator providers in tracker")

@@ -62,3 +62,4 @@ build/
 .tmp.driveupload
 # Ignore test scripts with API keys
 test_keys/
+*Zone.Identifier
