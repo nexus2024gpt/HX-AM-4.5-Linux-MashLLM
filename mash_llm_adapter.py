@@ -265,6 +265,7 @@ class MashLLMAdapter:
         self._poll_thread:  Optional[Thread] = None
         self._sse_thread:   Optional[Thread] = None
         self._last_top_str: Optional[str] = None
+        self._last_state: Optional[tuple] = None
 
     @classmethod
     def get(cls) -> "MashLLMAdapter":
@@ -431,21 +432,29 @@ class MashLLMAdapter:
                 self._set_models(models)
                 self._healthy = True
                 ready_cnt = sum(1 for m in models if m.ready)
-                top = sorted(
+                top_models = sorted(
                     [m for m in models if m.ready],
                     key=lambda m: m.score()
                 )[:3]
-                top_str = " | ".join(
-                    f"{m.canonical_name}({m.ram_gb}GB,{m.latency_ms:.0f}ms)"
-                    for m in top
+                current_state = (
+                    ready_cnt,
+                    tuple((m.canonical_name, round(m.ram_gb, 1)) for m in top_models)
                 )
-                # Выводим топ только при изменении
-                current_top_str = f"{ready_cnt}/{len(models)} serving-моделей. Топ: [{top_str}]"
-                if self._last_top_str != current_top_str:
-                    logger.info(current_top_str)
-                    self._last_top_str = current_top_str
+                if self._last_state != current_state:
+                    top_str = " | ".join(
+                        f"{m.canonical_name}({m.ram_gb}GB,{m.latency_ms:.0f}ms)"
+                        for m in top_models
+                    )
+                    logger.info(
+                        f"MashAdapter: {ready_cnt}/{len(models)} serving-моделей. "
+                        f"Топ: [{top_str}]"
+                    )
+                    self._last_state = current_state
                 else:
-                    logger.debug(current_top_str)
+                    logger.debug(
+                        f"MashAdapter: {ready_cnt}/{len(models)} serving-моделей. "
+                        f"Топ: [{' | '.join(f'{m.canonical_name}({m.ram_gb}GB,{m.latency_ms:.0f}ms)' for m in top_models)}]"
+                    )
                 return
 
             # models == None или пустой список
