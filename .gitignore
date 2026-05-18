@@ -63,3 +63,10 @@ build/
 # Ignore test scripts with API keys
 test_keys/
 *Zone.Identifier
+start_mesh.bat
+logs
+models
+llama-server
+local_provider_config.json
+llama_cpu.log
+.continue

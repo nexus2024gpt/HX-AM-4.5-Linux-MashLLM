@@ -74,18 +74,4 @@ OUTPUT FORMAT — JSON structure, replace 0.0 with YOUR computed values:
   }
 }
 
-CALIBRATION EXAMPLE (delay model — hormonal population regulation in ecology):
-{
-  "hypothesis": "Гормональные циклы регуляции численности популяций хищник-жертва демонстрируют инвариант запаздывающей отрицательной обратной связи, который сохраняется при изменении климатических условий благодаря механизму компенсационной задержки реакции между изменением численности жертвы и гормональным ответом хищника.",
-  "mechanism": "Система delay с tau=4.5 (сезонный лаг), K=0.19 (сила связи хищник-жертва), K_c=0.15. tau_critical=pi/(2*K)=8.25 — система устойчива при tau<tau_c.",
-  "domain": "ecology",
-  "b_sync": 0.68,
-  "implication": "Экосистемы с задержкой ответа меньше tau_critical сохраняют цикличность при изменении внешних условий.",
-  "four_d_matrix": {
-    "structure": {"C": 0.41, "k": 14.0, "D": 1.85},
-    "influence": {"h": 2.30, "T": 1.80, "eta": 0.32},
-    "dynamics": {"omega_i": 0.08, "K": 0.19, "K_c": 0.15, "p": 0.55, "model": "delay"},
-    "time": {"tau": 4.50, "H": 0.62, "freq": 0.25}
-  }
-}
-
+IMPORTANT: Your ENTIRE response must be a single JSON object. No extra text outside the JSON.

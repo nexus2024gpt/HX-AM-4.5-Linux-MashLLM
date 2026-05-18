@@ -1,43 +1,28 @@
 @echo off
 chcp 65001 >nul
-title HX-AM v4.5.2
+title HX-AM v4.5.2 — Full Stack
 
 echo ========================================
-echo    HX-AM v4.5.2 — MashAdapter Edition
+echo    HX-AM v4.5.2 — Полный запуск
 echo ========================================
 
-:: ── Шаг 1: Проверить что mesh-llm запущен ──────────────────────────
-echo.
-echo [1/3] Проверка MashLLM...
-wsl curl -s --max-time 3 http://localhost:9337/v1/models >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] MashLLM OpenAI API отвечает на :9337
-) else (
-    echo [WARN] MashLLM на :9337 недоступен.
-    echo        HX-AM запустится, но будет использовать только резервные провайдеры.
-    echo        Чтобы запустить MashLLM: start_mesh.bat
-)
+echo [1/4] Остановка старых процессов...
+wsl -d Ubuntu -u roman220877 --cd /home/roman220877/hxam bash -c "pkill -f llama-server; pkill -f mesh-llm; pkill -f hxam_v_4_server.py" 2>nul
 
-:: ── Шаг 2: Проверить Management API ────────────────────────────────
-wsl curl -s --max-time 3 http://localhost:3131/api/status >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] MashLLM Management API отвечает на :3131
-) else (
-    echo [INFO] Management API на :3131 недоступен — адаптер будет использовать /v1/models
-)
+echo [2/4] Запуск llama-server...
+wsl -d Ubuntu -u roman220877 --cd /home/roman220877/hxam ./start_llama_cpu.sh
 
-:: ── Шаг 3: Запустить HX-AM ─────────────────────────────────────────
-echo.
-echo [2/3] Запуск HX-AM v4.5.2 в WSL2...
-echo       Остановка: Ctrl+C или stop_hxam_v45.bat
-echo.
+echo [3/4] Запуск MashLLM...
+wsl -d Ubuntu -u roman220877 --cd /home/roman220877/hxam bash -c "mesh-llm client --auto > mesh_llm.log 2>&1 &" 2>nul
 
+echo [4/4] Запуск HX-AM...
 wsl -d Ubuntu -u roman220877 --cd /home/roman220877/hxam ^
     bash -c "source venv/bin/activate && python hxam_v_4_server.py 2>&1 | tee /tmp/hxam_last.log"
 
-:: ── Завершение ──────────────────────────────────────────────────────
 echo.
 echo ========================================
-echo [3/3] Сервер остановлен.
-echo       Лог: wsl cat /tmp/hxam_last.log
+echo Все сервисы запущены!
+echo HX-AM → http://127.0.0.1:8000
+echo ========================================
+echo.
 pause

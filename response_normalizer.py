@@ -236,6 +236,30 @@ def extract_json_multi(text: str) -> Tuple[Optional[dict], str]:
         if r and len(r) >= 1:
             return r, "inner_object"
 
+    # Strategy 8: Find JSON inside ```json ... ``` block
+    match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+    if match:
+        r = _try_parse(match.group(1))
+        if r:
+            return r, "json_block"
+
+    # Strategy 9: Find JSON after text like "JSON:" or just the last valid object in the text
+    # Look for patterns like "JSON:\n{...}" or just the outermost {...} after any text
+    # First, try to find a JSON object after the last occurrence of "JSON:" (case-insensitive)
+    json_marker = re.search(r'JSON:\s*(\{.*\})', text, re.IGNORECASE | re.DOTALL)
+    if json_marker:
+        r = _try_parse(json_marker.group(1))
+        if r:
+            return r, "json_after_marker"
+
+    # Fallback: find the outermost { ... } in the entire text (most greedy)
+    # but ensure it's valid JSON
+    match = re.search(r'(\{.*\})', text, re.DOTALL)
+    if match:
+        r = _try_parse(match.group(1))
+        if r:
+            return r, "outermost_braces"
+
     # Strategy 7: Regex key-value extraction
     partial: Dict[str, Any] = {}
     for m in re.finditer(r'"([a-zA-Zа-яёА-ЯЁ_][a-zA-Zа-яёА-ЯЁ_0-9]*)"\s*:\s*"([^"]{2,})"', text):

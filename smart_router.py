@@ -37,8 +37,6 @@ from typing import Dict, List, Optional, Tuple
 
 import requests
 
-from mash_llm_adapter import mash_adapter, MashLLMAdapter
-
 logger = logging.getLogger("HXAM.router")
 
 # ── Константы ────────────────────────────────────────────────────────────────
@@ -300,19 +298,10 @@ class SmartRouter:
         self._hc.start(providers_raw)
         self._ready = True
 
-        # ── MashLLM Adapter ──────────────────────────────────────────
-        try:
-            mash_adapter.start()
-            logger.info("SmartRouter: MashLLM адаптер запущен")
-        except Exception as e:
-            logger.warning(f"SmartRouter: MashLLM адаптер не запущен — {e}")
-        # ─────────────────────────────────────────────────────────────
-
         logger.info(
             f"SmartRouter инициализирован: "
             f"{len(self._metrics)} провайдеров, "
-            f"HealthChecker активен, "
-            f"MashAdapter={'активен' if mash_adapter.is_healthy() else 'ожидание'}"
+            f"HealthChecker активен"
         )
 
     def rank(self, role: str = "generator") -> list:
@@ -425,7 +414,6 @@ class SmartRouter:
             "providers":    providers_info,
             "circuit_state": self._cb.status(),
             "hc_running":   self._hc._thread.is_alive() if self._hc._thread else False,
-            "mash_adapter": mash_adapter.status_summary(),   # ← добавить
         }
 
     def force_health_check(self, provider_id: str) -> bool:

@@ -21,4 +21,4 @@
     "linked_to": ["IDs"], "reasoning_summary": "1-2 sentences"
   }
 }
-"reasoning_summary":"(in Russian only)"
+"reasoning_summary":"(in Russian only!)"
