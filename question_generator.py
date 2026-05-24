@@ -13,13 +13,14 @@
   - Возвращает только строку-вопрос (~50 токенов)
   - Статистика графа вычисляется локально, без LLM
   - Не сохраняет ничего сам — только передаёт вопрос в UI
+  - Использует разные шаблоны prompt для NOVEL и CLARIFY
 """
 
 import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from invariant_engine import InvariantGraph, SemanticSpace
 from llm_client_v_4 import LLMClient
@@ -46,13 +47,112 @@ class QuestionGenerator:
         self.space = space or SemanticSpace()
         self.graph = graph or InvariantGraph()
         self.llm = LLMClient()
-        self.prompt = self._load_prompt()
+        self._prompts = self._load_gen_prompts()
+        self.novel_prompt = self._load_prompt("novel_question_prompt.txt")
+        self.clarify_prompt = self._load_prompt("clarify_question_prompt.txt")
 
-    def _load_prompt(self) -> str:
-        path = Path("prompts/question_generator_prompt.txt")
+    def _load_prompt(self, filename: str) -> str:
+        path = Path("prompts") / filename
         if not path.exists():
-            raise FileNotFoundError("prompts/question_generator_prompt.txt not found")
+            raise FileNotFoundError(f"prompts/{filename} not found")
         return path.read_text(encoding="utf-8")
+
+    def _load_gen_prompts(self) -> Dict[str, str]:
+        names = ["gen_hypothesis", "gen_mechanism", "gen_domain", "gen_implication"]
+        result = {}
+        for name in names:
+            path = Path(f"prompts/{name}.txt")
+            if not path.exists():
+                raise FileNotFoundError(f"prompts/{name}.txt not found")
+            result[name] = path.read_text(encoding="utf-8")
+        return result
+
+    def _fill_field(self, template: str, context: Dict[str, str]) -> Tuple[str, str]:
+        """Заполняет один промпт, возвращает (результат, модель)."""
+        prompt = template
+        for key, val in context.items():
+            prompt = prompt.replace(f"{{{key}}}", val or "")
+        raw, model = self.llm.generate(prompt)
+        cleaned = self._extract_field_value(raw)
+        return cleaned, model
+
+    @staticmethod
+    def _extract_field_value(raw: str) -> str:
+        """
+        Из ответа вида 'hypothesis: текст' или просто 'текст'
+        извлекает только значение.
+        """
+        if not raw:
+            return ""
+        cleaned = re.sub(r"```[^`]*```", "", raw).strip()
+        for prefix in ["hypothesis:", "mechanism:", "domain:", "implication:"]:
+            if cleaned.lower().startswith(prefix):
+                cleaned = cleaned[len(prefix):].strip()
+                break
+        lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
+        return lines[0] if lines else ""
+
+    def build_generation_context(
+        self, user_input: str, rag_block: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Последовательно строит gen-блок через 4 отдельных вызова.
+        Каждый вызов = одно поле = одна задача.
+        rag_block подставляется только в gen_hypothesis.
+        """
+        context: Dict[str, str] = {"user_input": user_input}
+        models_used = []
+        repairs = []
+
+        ctx_hypothesis = {**context, "rag_block": rag_block}
+        raw_h, m = self._fill_field(self._prompts["gen_hypothesis"], ctx_hypothesis)
+        hypothesis = raw_h.strip()
+        if len(hypothesis) < 15:
+            hypothesis = user_input
+            repairs.append("hypothesis: fallback to user_input")
+        context["hypothesis"] = hypothesis
+        models_used.append(m)
+        logger.info(f"gen[1/4] hypothesis ({len(hypothesis)} chars) via {m}")
+
+        raw_m, m = self._fill_field(self._prompts["gen_mechanism"], context)
+        mechanism = raw_m.strip()
+        if len(mechanism) < 10:
+            mechanism = hypothesis
+            repairs.append("mechanism: fallback to hypothesis")
+        context["mechanism"] = mechanism
+        models_used.append(m)
+        logger.info(f"gen[2/4] mechanism ({len(mechanism)} chars) via {m}")
+
+        raw_d, m = self._fill_field(self._prompts["gen_domain"], context)
+        domain = self._clean_domain(raw_d)
+        context["domain"] = domain
+        models_used.append(m)
+        logger.info(f"gen[3/4] domain={domain} via {m}")
+
+        raw_i, m = self._fill_field(self._prompts["gen_implication"], context)
+        implication = raw_i.strip()
+        context["implication"] = implication
+        models_used.append(m)
+        logger.info(f"gen[4/4] implication ({len(implication)} chars) via {m}")
+
+        return {
+            "hypothesis": hypothesis,
+            "mechanism": mechanism,
+            "domain": domain,
+            "implication": implication,
+            "_models": models_used,
+            "_repairs": repairs,
+        }
+
+    @staticmethod
+    def _clean_domain(raw: str) -> str:
+        VALID = {
+            "biology", "chemistry", "physics", "economics", "psychology",
+            "linguistics", "sociology", "geology", "ecology", "neuroscience",
+            "medicine", "astronomy", "general",
+        }
+        word = re.split(r"[\s,.\n]", raw.strip().lower())[0]
+        return word if word in VALID else "general"
 
     # ──────────────────────────────────────────────
     # ПУБЛИЧНЫЕ МЕТОДЫ
@@ -67,13 +167,17 @@ class QuestionGenerator:
         recent = self._recent_hypotheses(n=5)
 
         context = {
-            "mode": "A",
-            "archive_stats": stats,
+            "archive_stats": {
+                "total_artifacts":  stats["total_artifacts"],
+                "missing_domains":  stats["missing_domains"],
+                "underrepresented": stats["underrepresented"],
+                "overrepresented":  stats["overrepresented"],
+            },
             "recent_hypotheses": recent,
         }
 
         prompt = (
-            self.prompt
+            self.novel_prompt
             + "\n\nCONTEXT:\n"
             + json.dumps(context, ensure_ascii=False, indent=2)
         )
@@ -107,32 +211,29 @@ class QuestionGenerator:
         verdict = ver.get("verdict", "")
         confidence = ver.get("confidence", 0)
         translation = ver.get("translation", {})
-
-        # Определяем что нужно уточнить
-        improvement_hint = self._improvement_hint(verdict, confidence, issues, structural)
+        survival = (translation.get("survival", "UNKNOWN")
+                    if isinstance(translation, dict) else "UNKNOWN")
+        specificity = structural.get("specificity", 0.5)
+        improvement_hint = self._improvement_hint(
+            verdict, confidence, issues, structural
+        )
 
         context = {
-            "mode": "B",
             "artifact": {
-                "id": artifact_id,
-                "domain": data.get("domain", "general"),
-                "hypothesis": gen.get("hypothesis", ""),
-                "mechanism": gen.get("mechanism", ""),
-                "verdict": verdict,
-                "confidence": confidence,
-                "issues": issues,
-                "translation": translation,
-                "survival": translation.get("survival", "UNKNOWN")
-                             if isinstance(translation, dict) else "UNKNOWN",
-                "specificity": structural.get("specificity"),
-                "b_sync": gen.get("b_sync"),
-                "artifact_type": structural.get("artifact_type"),
-            },
-            "suggested_improvement": improvement_hint,
+                "id":               artifact_id,
+                "hypothesis":       gen.get("hypothesis", ""),
+                "mechanism":        gen.get("mechanism", ""),
+                "verdict":          verdict,
+                "confidence":       confidence,
+                "issues":           issues,
+                "survival":         survival,
+                "specificity":      specificity,
+                "improvement_hint": improvement_hint,
+            }
         }
 
         prompt = (
-            self.prompt
+            self.clarify_prompt
             + "\n\nCONTEXT:\n"
             + json.dumps(context, ensure_ascii=False, indent=2)
         )

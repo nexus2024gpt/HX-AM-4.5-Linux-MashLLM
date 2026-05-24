@@ -1,6 +1,7 @@
 # invariant_engine.py — HX-AM v4.2 (replaces v4.0 version)
 # v4.2 changes:
 #   - FourDSemanticSpace: stores 4D vectors alongside text embeddings
+#   - SemanticSpace.add(): supports upsert and index rewrite
 #   - process_with_invariants(): computes 4d_resonance if four_d_matrix present
 #   - compute_4d_resonance injected into structural result
 #   - All v4.0 fixes retained (domain normalisation, batch encode, etc.)
@@ -45,7 +46,7 @@ def _normalize_domain(domain: str) -> str:
 
 class SemanticSpace:
     """
-    v4.2: добавлена поддержка 4D-векторов.
+    v4.2: добавлена поддержка 4D-векторов и UPSERT для semantic_index.
     Хранит параллельно: text-embeddings (512-dim) + 4D-vectors (13-dim).
     """
 
@@ -64,18 +65,41 @@ class SemanticSpace:
     def encode(self, text: str) -> np.ndarray:
         return _embedder.encode(text)
 
+    def _rewrite_index(self):
+        """Полная перезапись semantic_index.jsonl из памяти."""
+        with open(self.index_path, "w", encoding="utf-8") as f:
+            for m in self.meta:
+                f.write(json.dumps(m, ensure_ascii=False) + "\n")
+
     def add(self, artifact_id: str, invariant: str, domain: str, b_sync: float,
             four_d_vec: np.ndarray | None = None):
         domain = _normalize_domain(domain)
         vec = _embedder.encode(invariant)
+        entry = {
+            "id": artifact_id,
+            "invariant": invariant,
+            "domain": domain,
+            "b_sync": b_sync,
+        }
+
+        # ── UPSERT: артефакт уже существует (REF-обновление) ────────────
+        if artifact_id in self._id_to_idx:
+            idx = self._id_to_idx[artifact_id]
+            self.vectors[idx] = vec
+            self.meta[idx] = entry
+            self._rewrite_index()
+            if four_d_vec is not None:
+                self._four_d_vecs[artifact_id] = four_d_vec
+            _logger.info(f"SemanticSpace: upserted existing entry {artifact_id}")
+            return
+
+        # ── INSERT: новый артефакт ───────────────────────────────────────
         idx = len(self.vectors)
         self.vectors.append(vec)
         self._id_to_idx[artifact_id] = idx
-        entry = {"id": artifact_id, "invariant": invariant, "domain": domain, "b_sync": b_sync}
         self.meta.append(entry)
         with open(self.index_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        # v4.2: сохранить 4D если передан
         if four_d_vec is not None:
             self._four_d_vecs[artifact_id] = four_d_vec
 

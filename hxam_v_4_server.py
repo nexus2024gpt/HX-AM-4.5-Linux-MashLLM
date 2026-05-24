@@ -2,6 +2,7 @@
 # Исправления v4.2.1:
 #   - process_query: MathCore перемещён ПОСЛЕ save_artifact (fix: _patch_artifact)
 #   - process_query: domain diversity guard (подавление overrepresented+low-spec)
+#   - process_query: REF-aware pipeline с preserve_history и stale cleanup
 #   - result dict инициализируется с simulation/resonance=None до сохранения
 
 import os, json, time, hashlib, logging, re, shutil
@@ -19,6 +20,7 @@ from archivist import Archivist
 from invariant_engine import SemanticSpace, InvariantGraph, PhaseDetector, process_with_invariants
 from pipeline_guard import PipelineGuard, RollbackManager, QuarantineLog, FailureCode
 from question_generator import QuestionGenerator
+from four_d_builder import FourDBuilder, compute_b_sync
 from api_usage_tracker import tracker
 from response_normalizer import normalize_gen, normalize_ver, repairs_summary
 
@@ -119,16 +121,45 @@ def resolve_domain(gen: dict, req_domain: str) -> str:
     return "general"
 
 
-def save_artifact(job_id: str, data: Dict[str, Any]) -> Path:
+def save_artifact(
+    job_id: str,
+    data: Dict[str, Any],
+    preserve_history: bool = False,
+) -> Path:
+    """
+    Сохраняет артефакт.
+    preserve_history=True: сохраняет старое состояние в history[] перед перезаписью.
+    """
     path = Path("artifacts")
     path.mkdir(exist_ok=True)
+    file = path / f"{job_id}.json"
+
+    history = []
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    if preserve_history and file.exists():
+        try:
+            existing = json.loads(file.read_text(encoding="utf-8"))
+            created_at = existing.get("created_at", created_at)
+            old_data = existing.get("data", {})
+            history = existing.get("history", [])
+            history.append({
+                "revision": len(history) + 1,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "gen": old_data.get("gen", {}),
+                "ver": old_data.get("ver", {}),
+                "structural": old_data.get("structural", {}),
+            })
+        except Exception as e:
+            logger.warning(f"save_artifact: could not read existing for history — {e}")
+
     obj = {
         "id": job_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": created_at,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
         "data": data,
-        "history": [],
+        "history": history,
     }
-    file = path / f"{job_id}.json"
     file.write_text(json.dumps(obj, indent=2, ensure_ascii=False))
     return file
 
@@ -154,6 +185,18 @@ def _rejected_response(job_id: str, code: str, reason: str, stage: str) -> dict:
         "artifact": None,
         "domain": None,
     }
+
+
+def _cleanup_ref_stale_results(ref_id: str):
+    """Удаляет устаревшие производные результаты при REF-обновлении."""
+    stale = [
+        Path("mgap_results") / f"{ref_id}_mgap.json",
+        # sim_results перезаписываются MathCore автоматически
+    ]
+    for p in stale:
+        if p.exists():
+            p.unlink()
+            logger.info(f"REF cleanup: removed stale {p.name}")
 
 
 def filter_rag_diversity(
@@ -322,7 +365,22 @@ def _is_domain_overrepresented(domain: str, spec: float) -> tuple[bool, str]:
 
 def process_query(req: QueryRequest):
     client = LLMClient()
-    job_id = hashlib.md5(f"{req.text}{time.time()}".encode()).hexdigest()[:12]
+
+    # ── REF-детекция ДО создания job_id ─────────────────────────────────
+    ref_id = extract_ref_id(req.text)
+    ref_art_path = Path("artifacts") / f"{ref_id}.json" if ref_id else None
+    is_ref_update = (
+        ref_id is not None
+        and ref_art_path is not None
+        and ref_art_path.exists()
+    )
+
+    if is_ref_update:
+        job_id = ref_id
+        logger.info(f"REF update mode: reusing job_id={job_id}")
+    else:
+        job_id = hashlib.md5(f"{req.text}{time.time()}".encode()).hexdigest()[:12]
+
     rollback = RollbackManager()
     gen_model = "unknown"
     ver_model = "unknown"
@@ -339,30 +397,64 @@ def process_query(req: QueryRequest):
             for s in rag_similar:
                 rag_block += f"- [{s['domain']}] {s['invariant']} (sim:{s['similarity']})\n"
 
-        # ── ГЕНЕРАЦИЯ ───────────────────────────────────────────────
-        gen_input = f"{GEN_PROMPT}{rag_block}\n\nX: {req.x_coordinate}\n\nUser input:\n{req.text}"
-        logger.info(f"Job {job_id}: generating... rag_raw={len(rag_raw)} rag_filtered={len(rag_similar)}")
-        gen_raw, gen_model = client.generate(gen_input)
+        # ── ГЕНЕРАЦИЯ: 4 последовательных вызова ────────────────────
+        logger.info(f"Job {job_id}: starting 4-field generation pipeline")
+        try:
+            gen_fields = question_gen.build_generation_context(
+                req.text, rag_block=rag_block
+            )
+        except Exception as e:
+            reason = f"Generation pipeline failed: {e}"
+            quarantine.record(job_id, req.text,
+                              FailureCode.GEN_ALL_PROVIDERS_FAILED,
+                              reason, "generation")
+            return _rejected_response(job_id,
+                                      FailureCode.GEN_ALL_PROVIDERS_FAILED,
+                                      reason, "generation")
 
-        vr = guard.validate_gen_raw(gen_raw, gen_model)
-        if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason, "generation", gen_model=gen_model)
-            return _rejected_response(job_id, vr.code, vr.reason, "generation")
+        gen_model = gen_fields["_models"][-1]
+        gen_repairs = gen_fields.get("_repairs", [])
 
-        gen, gen_repairs, gen_ok = normalize_gen(gen_raw)
-        if not gen_ok:
-            reason = f"Generator output unrecoverable: {'; '.join(gen_repairs[-3:])}"
-            quarantine.record(job_id, req.text, FailureCode.GEN_UNRECOVERABLE, reason,
-                              "generation", gen_model=gen_model, gen_repairs=gen_repairs)
-            return _rejected_response(job_id, FailureCode.GEN_UNRECOVERABLE, reason, "generation")
+        # ── ПРОГРАММНОЕ ОБОГАЩЕНИЕ ───────────────────────────────────
+        domain = resolve_domain(gen_fields, req.domain)
 
+        builder = FourDBuilder()
+        four_d = builder.build(
+            domain=domain,
+            hypothesis=gen_fields["hypothesis"],
+            mechanism=gen_fields["mechanism"],
+        )
+
+        b_sync = compute_b_sync(
+            domain=domain,
+            hypothesis=gen_fields["hypothesis"],
+            mechanism=gen_fields["mechanism"],
+            space=semantic_space,
+        )
+
+        gen = {
+            "hypothesis": gen_fields["hypothesis"],
+            "mechanism": gen_fields["mechanism"],
+            "domain": domain,
+            "implication": gen_fields["implication"],
+            "b_sync": b_sync,
+            "four_d_matrix": four_d,
+        }
+
+        logger.info(
+            f"Job {job_id}: enriched → "
+            f"model={four_d.get('dynamics', {}).get('model')} "
+            f"b_sync={b_sync:.3f} domain={domain}"
+        )
+
+        # ── ВАЛИДАЦИЯ gen (облегчённая — числа теперь программные) ───
         vr = guard.validate_gen(gen, gen_model)
         if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason, "generation",
-                              gen_model=gen_model, gen_repairs=gen_repairs)
+            quarantine.record(job_id, req.text, vr.code, vr.reason,
+                              "generation", gen_model=gen_model,
+                              gen_repairs=gen_repairs)
             return _rejected_response(job_id, vr.code, vr.reason, "generation")
 
-        domain = resolve_domain(gen, req.domain)
         logger.info(f"Job {job_id}: gen OK → b_sync={gen.get('b_sync')} domain={domain}")
 
         # ── ВЕРИФИКАЦИЯ ─────────────────────────────────────────────
@@ -395,15 +487,19 @@ def process_query(req: QueryRequest):
         logger.info(f"Job {job_id}: ver OK → verdict={verdict} conf={confidence}")
 
         # ── РЕШЕНИЕ О СОХРАНЕНИИ ────────────────────────────────────
-        save = False
-        if verdict == "VALID" and confidence > 0.6:
+        if is_ref_update:
+            save = True
+        elif verdict == "VALID" and confidence > 0.6:
             save = True
         elif verdict == "WEAK" and float(gen.get("b_sync", 0)) > 0.7:
             save = True
+        else:
+            save = False
 
         # ── INVARIANT ENGINE ────────────────────────────────────────
         rollback.snapshot_space(semantic_space)
-        rollback.register_graph_node(job_id)
+        if not is_ref_update:
+            rollback.register_graph_node(job_id)
 
         result = process_with_invariants(
             result={
@@ -418,6 +514,7 @@ def process_query(req: QueryRequest):
                 "gen_model": gen_model,
                 "ver_model": ver_model,
                 "repairs": repairs_summary(gen_repairs, ver_repairs),
+                "is_ref_update": is_ref_update,
             },
             job_id=job_id,
             space=semantic_space,
@@ -435,11 +532,12 @@ def process_query(req: QueryRequest):
         # ── DOMAIN DIVERSITY GUARD ──────────────────────────────────
         # Если домен перенасыщен И гипотеза банальна — не сохранять,
         # но продолжать: граф уже обновлён, артефакт останется как weak_pattern.
-        suppress, suppress_reason = _is_domain_overrepresented(domain, spec)
-        if save and suppress:
-            save = False
-            result["save_skipped_reason"] = suppress_reason
-            logger.info(f"Job {job_id}: save suppressed by domain diversity guard — {suppress_reason}")
+        if not is_ref_update:
+            suppress, suppress_reason = _is_domain_overrepresented(domain, spec)
+            if save and suppress:
+                save = False
+                result["save_skipped_reason"] = suppress_reason
+                logger.info(f"Job {job_id}: save suppressed by domain diversity guard — {suppress_reason}")
 
         # Обновляем флаг сохранения в result
         result["saved"] = save
@@ -472,15 +570,21 @@ def process_query(req: QueryRequest):
 
         if save:
             artifact_file = save_artifact(
-                job_id, {
+                job_id,
+                {
                     "gen": result["generation"],
                     "ver": ver,
                     "domain": domain,
                     "structural": structural,
                     "normalization": repairs_summary(gen_repairs, ver_repairs),
-                }
+                },
+                preserve_history=is_ref_update,
             )
-            rollback.register_file(artifact_file)
+            if not is_ref_update:
+                rollback.register_file(artifact_file)
+            else:
+                _cleanup_ref_stale_results(job_id)
+
             result["artifact"] = str(artifact_file)
 
             try:
@@ -567,12 +671,13 @@ def process_query(req: QueryRequest):
             "save_skipped_reason": result.get("save_skipped_reason"),
         })
 
-        # ── AUTO-UPDATE REF ──────────────────────────────────────────
-        ref_id = extract_ref_id(req.text)
-        if ref_id:
-            logger.info(f"Job {job_id}: detected REF:{ref_id} — updating referenced artifact")
-            update_referenced_artifact(ref_id, result, req.text)
+        # ── REF: пометить результат, удалить update_referenced_artifact ──
+        if is_ref_update:
             result["ref_updated"] = ref_id
+            # update_referenced_artifact() НЕ вызываем:
+            # артефакт уже обновлён через save_artifact(preserve_history=True)
+            # semantic_space уже обновлён через SemanticSpace.add() upsert
+            # граф уже обновлён через process_with_invariants()
 
         rollback.clear()
         return result

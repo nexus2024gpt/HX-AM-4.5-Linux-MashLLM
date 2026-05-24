@@ -12,7 +12,7 @@ sleep 1
   --host 127.0.0.1 \
   --ctx-size 4096 \
   --threads 2 \
-  --n-predict 512 \
+  --n-predict 2048 \
   --temp 0.2 \
   --repeat-penalty 1.1 \
   2>&1 | tee -a llama_cpu.log &

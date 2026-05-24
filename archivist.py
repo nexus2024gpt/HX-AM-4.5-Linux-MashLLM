@@ -21,6 +21,8 @@ from scipy.spatial.distance import cosine
 from invariant_engine import InvariantGraph, PhaseDetector, SemanticSpace, _embedder
 from llm_client_v_4 import LLMClient
 
+from response_normalizer import extract_json_multi
+
 logger = logging.getLogger("HXAM.archivist")
 
 
@@ -278,29 +280,46 @@ class Archivist:
             },
         }
 
-    def _parse_result(self, raw: str) -> Dict[str, Any]:
-        cleaned = re.sub(r"```(?:json)?", "", raw).replace("```", "").strip()
-        match = re.search(r"\{[\s\S]*\}", cleaned)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError as e:
-                logger.warning(f"Archivist JSON parse error: {e}")
-        return self._fallback_result("json_parse_error")
-
-    @staticmethod
-    def _fallback_result(reason: str) -> Dict[str, Any]:
+    def _fallback_result(self, reason: str) -> Dict[str, Any]:
+        logger.warning(f"Archivist fallback result triggered: {reason}")
         return {
             "novelty": "KNOWN",
             "is_rephrasing_of": None,
             "cross_domain_links": [],
-            "mathematical_verification": "TERMINOLOGICAL",
-            "novelty_score": 0.45,
+            "mathematical_verification": "UNKNOWN",
+            "novelty_score": 0.0,
             "suggested_tags": [],
-            "confidence": 0.3,
+            "confidence": 0.0,
             "linked_to": [],
-            "reasoning_summary": f"Fallback: {reason}",
+            "reasoning_summary": f"Fallback triggered: {reason}",
         }
+
+    def _parse_result(self, raw: str) -> Dict[str, Any]:
+        # Используем мощный нормализатор из response_normalizer (7 стратегий)
+        data, strategy = extract_json_multi(raw)
+        if not isinstance(data, dict):
+            logger.warning(f"Archivist JSON extraction failed (strategy={strategy})")
+            return self._fallback_result("json_parse_error")
+        
+        if strategy != "direct":
+            logger.debug(f"Archivist extracted JSON using strategy={strategy}")
+        
+        # Гарантируем минимально необходимые поля для архивиста
+        result = {
+            "novelty": data.get("novelty", "KNOWN"),
+            "is_rephrasing_of": data.get("is_rephrasing_of"),
+            "cross_domain_links": data.get("cross_domain_links", []),
+            "mathematical_verification": data.get("mathematical_verification", "TERMINOLOGICAL"),
+            "novelty_score": float(data.get("novelty_score", 0.45)),
+            "suggested_tags": data.get("suggested_tags", []),
+            "confidence": float(data.get("confidence", 0.3)),
+            "linked_to": data.get("linked_to", []),
+            "reasoning_summary": data.get("reasoning_summary", "Normalized by parser"),
+        }
+        # Если явно не указано linked_to, но есть is_rephrasing_of — добавить
+        if result["is_rephrasing_of"] and not result["linked_to"]:
+            result["linked_to"] = [result["is_rephrasing_of"]]
+        return result
 
 
 if __name__ == "__main__":
