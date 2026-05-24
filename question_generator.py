@@ -124,7 +124,7 @@ class QuestionGenerator:
         logger.info(f"gen[2/4] mechanism ({len(mechanism)} chars) via {m}")
 
         raw_d, m = self._fill_field(self._prompts["gen_domain"], context)
-        domain = self._clean_domain(raw_d)
+        domain = self._clean_domain(raw_d, context)
         context["domain"] = domain
         models_used.append(m)
         logger.info(f"gen[3/4] domain={domain} via {m}")
@@ -145,14 +145,19 @@ class QuestionGenerator:
         }
 
     @staticmethod
-    def _clean_domain(raw: str) -> str:
-        VALID = {
-            "biology", "chemistry", "physics", "economics", "psychology",
-            "linguistics", "sociology", "geology", "ecology", "neuroscience",
-            "medicine", "astronomy", "general",
-        }
-        word = re.split(r"[\s,.\n]", raw.strip().lower())[0]
-        return word if word in VALID else "general"
+    def _clean_domain(raw: str, context: Dict[str, str] = None) -> str:
+        """
+        v4.6: использует SmartDomainResolver вместо жёсткого списка.
+        Без LLM — только уровни 1-2 (keyword).
+        """
+        from smart_domain_resolver import SmartDomainResolver
+        resolver = SmartDomainResolver(space=None)  # без архива на этом шаге
+        domain, conf, method = resolver.resolve(
+            text=raw,
+            hypothesis=context.get("hypothesis", "") if context else "",
+            mechanism=context.get("mechanism", "") if context else "",
+        )
+        return domain
 
     # ──────────────────────────────────────────────
     # ПУБЛИЧНЫЕ МЕТОДЫ

@@ -23,6 +23,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from domain_config import NEW_DOMAIN_PARAMS
+
 logger = logging.getLogger("HXAM.4dbuilder")
 
 # ── Типичные диапазоны параметров по домену ───────────────────
@@ -42,6 +44,7 @@ DOMAIN_PARAMS: Dict[str, Dict] = {
     "astronomy":    {"k":(4,10),  "C":(0.30,0.60), "D":(2.0,3.5), "tau":(5.0,20.0), "H":(0.60,0.85), "freq":(0.05,1.0), "h":(0.5,3.0), "T":(0.5,2.0),  "eta":(0.10,0.30)},
     "general":      {"k":(6,15),  "C":(0.50,0.75), "D":(2.0,2.5), "tau":(1.0,5.0),  "H":(0.55,0.72), "freq":(0.5,2.0),  "h":(0.8,2.0), "T":(0.9,1.8),  "eta":(0.18,0.38)},
 }
+DOMAIN_PARAMS.update(NEW_DOMAIN_PARAMS)
 
 # ── Типичные параметры динамики по модели ─────────────────────
 # K_ratio: K = K_c * K_ratio  (обеспечивает K > K_c)

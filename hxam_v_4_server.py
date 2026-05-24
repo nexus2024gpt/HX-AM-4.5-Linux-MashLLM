@@ -112,13 +112,42 @@ GEN_PROMPT = load_prompt("generator_prompt.txt")
 VER_PROMPT = load_prompt("verifier_prompt.txt")
 
 
-def resolve_domain(gen: dict, req_domain: str) -> str:
-    gen_domain = gen.get("domain", "").strip().lower()
-    if gen_domain and gen_domain not in ("general", ""):
-        return gen_domain
-    if req_domain and req_domain not in ("general", ""):
-        return req_domain
-    return "general"
+_domain_resolver: Optional["SmartDomainResolver"] = None
+
+
+def get_domain_resolver() -> "SmartDomainResolver":
+    global _domain_resolver
+    if _domain_resolver is None:
+        from smart_domain_resolver import SmartDomainResolver
+        _domain_resolver = SmartDomainResolver(space=semantic_space)
+    return _domain_resolver
+
+
+def resolve_domain(
+    gen: dict,
+    req_domain: str,
+    hypothesis: str = "",
+    mechanism: str = "",
+) -> str:
+    """v4.6: SmartDomainResolver вместо наивной проверки."""
+    llm_domain = gen.get("domain", "").strip().lower()
+
+    resolver = get_domain_resolver()
+    domain, conf, method = resolver.resolve(
+        text=llm_domain,
+        llm_domain=llm_domain,
+        hypothesis=hypothesis or gen.get("hypothesis", ""),
+        mechanism=mechanism or gen.get("mechanism", ""),
+    )
+
+    if conf < 0.5 and req_domain not in ("general", ""):
+        domain = req_domain
+
+    logger.info(
+        f"resolve_domain: '{llm_domain}' → '{domain}' "
+        f"conf={conf:.2f} method={method}"
+    )
+    return domain
 
 
 def save_artifact(
