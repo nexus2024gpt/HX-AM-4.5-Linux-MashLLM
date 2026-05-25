@@ -23,7 +23,9 @@ from question_generator import QuestionGenerator
 from four_d_builder import FourDBuilder, compute_b_sync
 from api_usage_tracker import tracker
 from response_normalizer import normalize_gen, normalize_ver, repairs_summary
+from retry_manager import retry_manager, RetryManager
 
+# v4.5.6: retry support for generation and verification steps
 from math_core import MathCore
 from mgap_matcher import MGAPMatcher
 
@@ -486,19 +488,57 @@ def process_query(req: QueryRequest):
 
         logger.info(f"Job {job_id}: gen OK → b_sync={gen.get('b_sync')} domain={domain}")
 
-        # ── ВЕРИФИКАЦИЯ ─────────────────────────────────────────────
+        # ── ВЕРИФИКАЦИЯ с retry ──────────────────────────────────────────────
         ver_input = f"{VER_PROMPT}\n\nHypothesis:\n{json.dumps(gen, ensure_ascii=False)}"
-        ver_raw, ver_model = client.verify(ver_input, context=req.text)
 
-        vr = guard.validate_ver_raw(ver_raw, ver_model)
-        if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason, "verification",
-                              gen_model=gen_model, ver_model=ver_model, gen_repairs=gen_repairs)
-            return _rejected_response(job_id, vr.code, vr.reason, "verification")
+        def _call_ver():
+            raw, model = client.verify(ver_input, context=req.text)
+            return raw, model
 
-        ver, ver_repairs, ver_ok = normalize_ver(ver_raw)
+        def _normalize_ver(raw_text, model_name):
+            """raw_text — строка, model_name — имя модели."""
+            v, repairs, ok = normalize_ver(raw_text)
+            return v, repairs, ok
+
+        def _validate_ver(normalized_tuple, model_name):
+            if not normalized_tuple or len(normalized_tuple) < 3:
+                return False
+            v, repairs, ok = normalized_tuple
+            if not ok:
+                return False
+            verdict = str(v.get("verdict", "")).strip().upper()
+            raw_check = guard.validate_ver_raw(model_name, model_name)
+            return verdict in ("VALID", "WEAK", "FALSE")
+
+        ver_retry_result = retry_manager.call_with_retry(
+            func=_call_ver,
+            validator=RetryManager.validator_ver,
+            normalize=_normalize_ver,
+            context="verifier",
+        )
+
+        if not ver_retry_result or not ver_retry_result.value:
+            reason = "Verifier: all retries exhausted"
+            ver_raw_last, ver_model = ("", "unknown")
+            # Последняя попытка без retry для получения ver_model
+            try:
+                ver_raw_last, ver_model = client.verify(ver_input, context=req.text)
+            except Exception:
+                pass
+            vr_raw = guard.validate_ver_raw(ver_raw_last, ver_model)
+            if not vr_raw:
+                quarantine.record(job_id, req.text, vr_raw.code, vr_raw.reason,
+                                  "verification", gen_model=gen_model,
+                                  ver_model=ver_model, gen_repairs=gen_repairs)
+                return _rejected_response(job_id, vr_raw.code, vr_raw.reason, "verification")
+            ver, ver_repairs, ver_ok = normalize_ver(ver_raw_last)
+        else:
+            ver, ver_repairs, ver_ok = ver_retry_result.value
+            ver_model = ver_retry_result.provider
+            ver_repairs = list(ver_repairs) + ver_retry_result.repairs
+
         if not ver_ok:
-            reason = f"Verifier output unrecoverable: {'; '.join(ver_repairs[-3:])}"
+            reason = f"Verifier output unrecoverable after retries: {'; '.join(ver_repairs[-3:])}"
             quarantine.record(job_id, req.text, FailureCode.VER_UNRECOVERABLE, reason,
                               "verification", gen_model=gen_model, ver_model=ver_model,
                               gen_repairs=gen_repairs, ver_repairs=ver_repairs)
@@ -510,6 +550,7 @@ def process_query(req: QueryRequest):
                               gen_model=gen_model, ver_model=ver_model,
                               gen_repairs=gen_repairs, ver_repairs=ver_repairs)
             return _rejected_response(job_id, vr.code, vr.reason, "verification")
+        # ── конец блока верификации ──────────────────────────────────────────
 
         verdict = ver.get("verdict", "WEAK")
         confidence = ver.get("confidence", 0.5)

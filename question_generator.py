@@ -68,13 +68,55 @@ class QuestionGenerator:
         return result
 
     def _fill_field(self, template: str, context: Dict[str, str]) -> Tuple[str, str]:
-        """Заполняет один промпт, возвращает (результат, модель)."""
+        """
+        Заполняет один промпт, возвращает (результат, модель).
+        v4.5.6: retry при слишком коротком ответе.
+        """
+        from retry_manager import retry_manager
+
         prompt = template
         for key, val in context.items():
             prompt = prompt.replace(f"{{{key}}}", val or "")
-        raw, model = self.llm.generate(prompt)
-        cleaned = self._extract_field_value(raw)
-        return cleaned, model
+
+        # Домен — одно слово, retry не нужен
+        if "одно слово" in template or "only one word" in template.lower() \
+                or "Ответ: только одно слово" in template:
+            min_len = 2   # "bio" уже валидно
+        elif "{hypothesis}" in template or "КАК: найди два" in template:
+            min_len = 30
+        elif "{mechanism}" in template or "механизм" in template.lower():
+            min_len = 20
+        else:
+            min_len = 10
+
+        def _call(p=prompt):
+            raw, model = self.llm.generate(p)
+            cleaned = self._extract_field_value(raw)
+            return cleaned, model
+
+        result = retry_manager.call_with_retry(
+            func=_call,
+            validator=retry_manager.validator_field(min_len=min_len),
+            context=f"fill_field/min{min_len}",
+        )
+
+        if result and result.value:
+            cleaned, model = result.value
+            if result.attempts > 1:
+                logger.info(
+                    f"_fill_field: success after {result.attempts} attempts "
+                    f"(min_len={min_len})"
+                )
+            return cleaned, model
+
+        # Fallback: вернуть что есть (как раньше)
+        logger.warning(f"_fill_field: all retries exhausted, returning last raw")
+        try:
+            raw, model = self.llm.generate(prompt)
+            return self._extract_field_value(raw), model
+        except Exception as e:
+            logger.error(f"_fill_field fallback failed: {e}")
+            return "", "unknown"
 
     @staticmethod
     def _extract_field_value(raw: str) -> str:

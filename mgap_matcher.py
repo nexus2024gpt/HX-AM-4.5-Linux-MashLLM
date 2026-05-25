@@ -9,6 +9,7 @@ v4.5 исправления:
   - Verdict учитывает survival_verified (False → предупреждение)
   - Verdict учитывает stability_score < 0.5 (математически нестабильный)
   - _compute_resonance: нормализован type_bonus к правильным весам
+  - v4.5.6: retry для blind_spot и match_analysis
 """
 
 from __future__ import annotations
@@ -944,16 +945,29 @@ class MGAPMatcher:
         return result
 
     def _improve_blind_spot(self, template: str, model: Dict) -> str:
-        """v4.5.1: использует тот же LLM-приоритет что и generator pipeline."""
         if not self.llm or not template:
             return template
+
+        from retry_manager import retry_manager
+
         prompt = (
             f"Улучши описание слепой зоны для модели «{model.get('name')}» "
             f"(отрасль: {model.get('logia')}). Сохрани все числа. "
             f"Верни ТОЛЬКО улучшенный текст, одним абзацем:\n{template}"
         )
-        improved, model_name = self._llm_generate(prompt, purpose="blind_spot")
-        if improved and len(improved) > 20:
+
+        def _call():
+            text, m = self._llm_generate(prompt, purpose="blind_spot")
+            return text, m
+
+        result = retry_manager.call_with_retry(
+            func=_call,
+            validator=retry_manager.validator_field(min_len=30),
+            context="mgap/blind_spot",
+        )
+
+        if result and result.value:
+            improved, _ = result.value
             return improved.strip()
         return template
 
@@ -997,7 +1011,22 @@ math_type: {model.get("math_type")}
 Верни ТОЛЬКО JSON:
 {{"why_applicable": "...", "main_risk": "...", "dev_action": "...", "confidence": 0.0}}"""
 
-        text, model_used = self._llm_generate(prompt, purpose="match_analysis")
+        from retry_manager import retry_manager
+
+        def _call_analysis():
+            text, model_used = self._llm_generate(prompt, purpose="match_analysis")
+            return text, model_used
+
+        result = retry_manager.call_with_retry(
+            func=_call_analysis,
+            validator=retry_manager.validator_field(min_len=40),
+            context="mgap/match_analysis",
+        )
+
+        if not result or not result.value:
+            return None
+
+        text, model_used = result.value
         if not text:
             return None
 
