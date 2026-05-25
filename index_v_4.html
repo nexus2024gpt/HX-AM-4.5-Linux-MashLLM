@@ -674,9 +674,9 @@ select.f-input option{background:#1e293b}
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════
+// 
 // GRAPH CONFIG — increased distances for readability
-// ══════════════════════════════════════════════════════
+// 
 const GRAPH_CONFIG = {
   linkDistanceBase: 300,      // rest length of link spring
   chargeStrength: -1800,      // node repulsion (more negative = more spread)
@@ -684,9 +684,9 @@ const GRAPH_CONFIG = {
   alphaDecay: 0.015,          // slower cooling = better layout
 };
 
-// ══════════════════════════════════════════════════════
+// 
 // STATE
-// ══════════════════════════════════════════════════════
+// 
 let historyEntries = [];
 let artifactsData = [];
 let histSortDir = 'desc';
@@ -704,9 +704,9 @@ function safeGet(obj, path, def = '—') {
   return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : def), obj);
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // NODE COLORS
-// ══════════════════════════════════════════════════════
+// 
 const NODE_COLORS = {
   stable_cluster:            '#4ade80',
   'hyx-artifact':            '#4ade80',
@@ -731,9 +731,9 @@ function weightToColor(w, maxW) {
   return lerpColor('#f59e0b', '#ef4444', (t - 0.5) * 2);
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // TABS
-// ══════════════════════════════════════════════════════
+// 
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -748,7 +748,7 @@ function switchTab(name, btn) {
   if (name === 'mgap')       loadMgapRegistry();
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // MGAP
 
 let _mgapRegistry = [];
@@ -851,13 +851,15 @@ function renderMgapMatches(data) {
 
 function renderMgapMatch(m) {
   const rc = _resColor(m.resonance || 0);
-  const warn = m.calculation?.warning_triggered;
+  const warn = m.artifact_check?.warning_triggered ?? m.calculation?.warning_triggered;
   const warnBadge = warn
     ? '<span class="mgap-warn-badge mgap-warn-yes">⚠️ Порог превышен</span>'
     : '<span class="mgap-warn-badge mgap-warn-no">✅ Стабильно</span>';
   const matchBadge = m.math_type_match
     ? '<span style="color:#4ade80;font-size:.7rem">✓ math_type совпадает</span>'
     : '<span style="color:#94a3b8;font-size:.7rem">∿ разные math_type</span>';
+  const vDev = m.verdict?.for_developer || {};
+  const vBiz = m.verdict?.for_business || {};
 
   const trans = m.translation || {};
   const transRows = Object.entries(trans)
@@ -878,7 +880,7 @@ function renderMgapMatch(m) {
 
   const calc = m.calculation || {};
   const thresholds = trans._thresholds || {};
-  let calcHtml = '<div style="color:#64748b;font-size:.82rem">Нет дополнительных данных расчёта.</div>';
+    let calcHtml = '<div style="color:#64748b;font-size:.82rem">Нет дополнительных данных расчёта.</div>';
   if (calc.example_type === 'graph_invariant') {
     calcHtml = `<div class="mgap-calc-grid">
       <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#f59e0b">${fmtFd(calc.computed_cv)}</div><div class="mgap-calc-label">CV реальный</div></div>
@@ -887,12 +889,13 @@ function renderMgapMatch(m) {
       <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#4ade80">${fmtFd(calc.new_buffer)}</div><div class="mgap-calc-label">Новый буфер</div></div>
     </div>`;
   } else if (calc.example_type === 'kuramoto') {
-    const sw = Array.isArray(calc.warnings) ? calc.warnings.join('<br>') : 'нет';
+    const warningsList = (calc.warnings || []).filter(w => w);
+    const warningsHtml = warningsList.length ? `<div style="margin-top:.3rem;color:#f87171">⚠️ ${warningsList.join('<br>')}</div>` : '';
     calcHtml = `<div style="font-size:.78rem;color:#94a3b8;margin-top:.5rem">
       K > K_c: <b style="color:${calc.K_above_Kc?'#4ade80':'#ef4444'}">${calc.K_above_Kc?'Да':'Нет'}</b> &nbsp;
       Шум OK: <b style="color:${calc.noise_ok?'#4ade80':'#ef4444'}">${calc.noise_ok?'Да':'Нет'}</b> &nbsp;
-      Задержка OK: <b style="color:${calc.delay_ok?'#4ade80':'#ef4444'}">${calc.delay_ok?'Да':'Нет'}</b><br>
-      <span style="color:#ef4444">${sw !== 'нет' ? '⚠️ ' + sw : ''}</span>
+      Задержка OK: <b style="color:${calc.delay_ok?'#4ade80':'#ef4444'}">${calc.delay_ok?'Да':'Нет'}</b>
+      ${warningsHtml}
     </div>`;
   } else if (calc.example_type === 'delay') {
     calcHtml = `<div class="mgap-calc-grid">
@@ -901,42 +904,49 @@ function renderMgapMatch(m) {
       <div class="mgap-calc-cell"><div class="mgap-calc-val">${fmtFd(calc.delay_margin)}</div><div class="mgap-calc-label">Запас по задержке</div></div>
       <div class="mgap-calc-cell"><div class="mgap-calc-val">${fmtFd(calc.coupling_margin)}</div><div class="mgap-calc-label">Запас K</div></div>
     </div>`;
+  } else if (calc.example_type === 'percolation') {
+    const pCrit = calc.p_crit ?? '—';
+    const pMeasured = calc.input?.p_measured ?? '—';
+    const cascadeRisk = calc.cascade_risk !== undefined ? (calc.cascade_risk * 100).toFixed(1) + '%' : '—';
+    const compoundRisk = calc.compound_risk ?? '—';
+    const warnings = (calc.warnings || []).join('; ');
+    calcHtml = `<div class="mgap-calc-grid">
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#f59e0b">${pMeasured}</div><div class="mgap-calc-label">p_measured</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#6366f1">${pCrit}</div><div class="mgap-calc-label">p_crit</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#fbbf24">${cascadeRisk}</div><div class="mgap-calc-label">Риск каскада</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#4ade80">${compoundRisk}</div><div class="mgap-calc-label">Составной риск</div></div>
+    </div>${warnings ? `<div style="margin-top:.5rem;font-size:.7rem;color:#f87171">⚠️ ${warnings}</div>` : ''}`;
+  } else if (calc.example_type === 'ising') {
+    const tCrit = calc.T_crit ?? '—';
+    const mag = calc.magnetization ?? '—';
+    const corr = calc.correlation_length ?? '—';
+    const warnings = (calc.warnings || []).join('; ');
+    calcHtml = `<div class="mgap-calc-grid">
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#f59e0b">${tCrit}</div><div class="mgap-calc-label">T_crit</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#fbbf24">${mag}</div><div class="mgap-calc-label">Намагниченность</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#4ade80">${corr}</div><div class="mgap-calc-label">Длина корреляции</div></div>
+    </div>${warnings ? `<div style="margin-top:.5rem;font-size:.7rem;color:#f87171">⚠️ ${warnings}</div>` : ''}`;
+  } else if (calc.example_type === 'lotka_volterra') {
+    const ratio = calc.predator_prey_ratio ?? '—';
+    const stability = calc.stability_margin ?? '—';
+    const period = calc.oscillation_period ?? '—';
+    const warnings = (calc.warnings || []).join('; ');
+    calcHtml = `<div class="mgap-calc-grid">
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#f59e0b">${ratio}</div><div class="mgap-calc-label">Хищник/жертва</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#fbbf24">${stability}</div><div class="mgap-calc-label">Запас устойчивости</div></div>
+      <div class="mgap-calc-cell"><div class="mgap-calc-val" style="color:#4ade80">${period}</div><div class="mgap-calc-label">Период колебаний</div></div>
+    </div>${warnings ? `<div style="margin-top:.5rem;font-size:.7rem;color:#f87171">⚠️ ${warnings}</div>` : ''}`;
+  } else if (calc && typeof calc === 'object' && Object.keys(calc).length) {
+    // Универсальный fallback: показать все поля, кроме вложенных объектов
+    const safeKeys = Object.keys(calc).filter(k => k !== 'input' && typeof calc[k] !== 'object');
+    calcHtml = `<div style="font-size:.75rem"><table style="width:100%;border-collapse:collapse">${safeKeys.map(k => `<tr><td style="padding:.2rem;color:#64748b">${k}</td><td style="padding:.2rem;text-align:right">${fmtFd(calc[k])}</td></tr>`).join('')}</table></div>`;
   }
-
-  const vDev = m.verdict?.for_developer || {};
-  const vBiz = m.verdict?.for_business || {};
-
-  return `<div class="mgap-match-card" style="border-left:4px solid ${rc}">
-    <div class="mgap-match-card-head">
-      <span class="mgap-resonance-pill" style="color:${rc}">${((m.resonance||0)*100).toFixed(0)}%</span>
-      <div>
-        <div style="font-size:.88rem;font-weight:700;color:#e2e8f0">${escHtml(m.model_id)} · ${escHtml(m.model_name||'')} <span style="color:#64748b;font-weight:400">[${escHtml(m.logia||'')}]</span></div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem">${escHtml((m.programs||[]).join(' · '))} &nbsp;|&nbsp; ${matchBadge}</div>
-      </div>
-      <div style="margin-left:auto">${warnBadge}</div>
-    </div>
-    <div class="mgap-match-card-body">
-      <div style="font-size:.72rem;color:#64748b;margin-bottom:.6rem">
-        <b>Артефакт:</b> ${escHtml(m.artifact_summary?.domain||'—')} · stability=${escHtml(m.artifact_summary?.stability_score||'—')} · novelty=<span style="color:#22d3ee">${escHtml(m.artifact_summary?.novelty||'—')}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
-        <div class="mgap-match-card" style="margin:0">
-          <div class="mgap-match-card-head"><span class="mgap-match-card-title">🔤 Перевод параметров</span></div>
-          <div class="mgap-match-card-body" style="padding:.5rem .75rem">${transRows || '<div style="color:#64748b;font-size:.82rem">Нет перевода параметров.</div>'}</div>
-        </div>
-        <div class="mgap-match-card" style="margin:0;border-left:3px solid #ef444455">
-          <div class="mgap-match-card-head"><span class="mgap-match-card-title">🛡️ Слепая зона</span></div>
-          <div class="mgap-match-card-body" style="padding:.5rem .75rem;color:#94a3b8;font-size:.82rem">${escHtml(m.blind_spot || 'Нет данных')}</div>
-        </div>
-      </div>
-      ${(() => {
+  return `${(() => {
         const ac = m.artifact_check || {};
         const warns = ac.warnings || [];
         const sim   = m.similarity || {};
         const kws   = (sim.matching_keywords || []);
         const prox  = (sim.param_proximity || []).filter(r => r.close);
-        const tier  = sim.resonance_tier || '';
-        const tierColor = tier==='высокий'?'#4ade80':tier==='средний'?'#f59e0b':'#ef4444';
 
         const acHtml = `
           <div class="mgap-match-card" style="margin-bottom:.75rem;border-left:3px solid ${warns.length?'#ef4444':'#4ade80'}">
@@ -963,7 +973,7 @@ function renderMgapMatch(m) {
           <div class="mgap-match-card" style="margin-bottom:.75rem">
             <div class="mgap-match-card-head">
               <span class="mgap-match-card-title">🔗 Почему похоже</span>
-              <span style="margin-left:auto;font-size:.68rem;color:\${tierColor}">резонанс \${tier}</span>
+              <span style="margin-left:auto;font-size:.68rem;color:${m.resonance>=0.8?'#4ade80':m.resonance>=0.65?'#f59e0b':'#ef4444'}">резонанс: ${m.resonance_tier}</span>
             </div>
             <div class="mgap-match-card-body" style="padding:.5rem .75rem">
               ${kws.length ? `<div style="margin-bottom:.4rem">
@@ -986,12 +996,41 @@ function renderMgapMatch(m) {
             <div class="mgap-match-card-body">${calcHtml}</div>
           </div>`;
 
-        return acHtml + calcBlock;
+        const transBlock = transRows.length ? `
+          <div class="mgap-match-card" style="margin-bottom:.75rem">
+            <div class="mgap-match-card-head"><span class="mgap-match-card-title">🔤 Перевод параметров</span></div>
+            <div class="mgap-match-card-body" style="padding:.5rem .75rem">
+              ${transRows}
+            </div>
+          </div>` : '';
+
+        const blindSpot = m.blind_spot || {};
+        const blindBlock = blindSpot.severity ? `
+          <div class="mgap-match-card" style="margin-bottom:.75rem;border-left:3px solid ${blindSpot.severity==='critical'?'#ef4444':blindSpot.severity==='warning'?'#f59e0b':'#fbbf24'}">
+            <div class="mgap-match-card-head">
+              <span class="mgap-match-card-title">🛡️ Слепая зона</span>
+              <span style="margin-left:auto;font-size:.7rem;font-weight:700;color:${blindSpot.severity==='critical'?'#ef4444':blindSpot.severity==='warning'?'#f59e0b':'#fbbf24'}">${blindSpot.severity}</span>
+            </div>
+            <div class="mgap-match-card-body" style="padding:.5rem .75rem">
+              <div style="font-size:.78rem;color:#e2e8f0;margin-bottom:.4rem">${escHtml(blindSpot.description||'')}</div>
+              ${blindSpot.affected_params ? `<div style="font-size:.7rem;color:#64748b;margin-bottom:.3rem"><b>Затронутые параметры:</b></div><div style="display:flex;gap:.3rem;flex-wrap:wrap">${(blindSpot.affected_params||[]).map(p=>`<span style="background:#1e293b;border:1px solid #475569;color:#cbd5e1;border-radius:4px;padding:.1rem .35rem;font-size:.7rem">${escHtml(p)}</span>`).join('')}</div>` : ''}
+              ${blindSpot.mitigation ? `<div style="margin-top:.4rem;padding:.4rem;background:#0f172a;border-radius:6px;font-size:.75rem;color:#fbbf24"><b>Как избежать:</b><br>${escHtml(blindSpot.mitigation)}</div>` : ''}
+            </div>
+          </div>` : '';
+
+        return acHtml + calcBlock + transBlock + blindBlock;
       })()}
       <div class="mgap-match-card" style="margin-bottom:.75rem">
-        <div class="mgap-match-card-head"><span class="mgap-match-card-title">💻 Код адаптации</span></div>
-        <div class="mgap-match-card-body">${escHtml(m.code_snippet || 'Нет кода')}</div>
+        <div class="mgap-match-card-head">
+          <span class="mgap-match-card-title">💻 Код адаптации</span>
+          <span style="font-size:.65rem;color:#64748b;margin-left:auto">${escHtml((m.adaptation?.programs||m.programs||[]).join(', '))}</span>
+        </div>
+        <div class="mgap-match-card-body">
+          <div class="mgap-code-block">${escHtml(m.adaptation?.code_snippet || m.code_snippet || '— код недоступен')}</div>
+        </div>
       </div>
+      ${m.calculation_summary ? `<div style="background:#0f172a;border-radius:8px;padding:.5rem .85rem;margin-bottom:.75rem;font-size:.75rem;color:#94a3b8;border-left:3px solid #334155"><span style="font-size:.62rem;color:#475569;text-transform:uppercase;letter-spacing:.05em">Итог расчёта</span><br>${escHtml(m.calculation_summary)}</div>` : ''}
+      ${m.llm_analysis ? `<div style="background:#6366f111;border-radius:8px;padding:.6rem .85rem;margin-bottom:.75rem;border:1px solid #6366f133"><div style="font-size:.62rem;color:#6366f1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem">🤖 LLM-анализ (${escHtml(m.llm_analysis._model||'')})</div><div style="font-size:.78rem;color:#e2e8f0;margin-bottom:.2rem"><b>Применимо:</b> ${escHtml(m.llm_analysis.why_applicable||'')}</div><div style="font-size:.75rem;color:#f87171;margin-bottom:.2rem"><b>Риск:</b> ${escHtml(m.llm_analysis.main_risk||'')}</div><div style="font-size:.75rem;color:#4ade80"><b>Действие:</b> ${escHtml(m.llm_analysis.dev_action||'')}</div></div>` : ''}
       <div class="mgap-verdict-dev">
         <div class="mgap-verdict-label">👨‍💻 Для разработчика</div>
         <div style="color:#e2e8f0">${escHtml(vDev.action||'—')}</div>
@@ -1034,7 +1073,7 @@ function renderMgapBatch(data) {
   }).join('');
 }
 
-// ══════════════════════════════════════════════════════
+// 
 let ragTimer = null;
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('queryText').addEventListener('input', () => {
@@ -1060,9 +1099,9 @@ async function fetchRag() {
   } catch(e) { block.classList.remove('visible'); }
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // SEND QUERY
-// ══════════════════════════════════════════════════════
+// 
 async function sendQuery() {
   const text = document.getElementById('queryText').value.trim();
   if (!text) return;
@@ -1261,9 +1300,9 @@ function renderPipelineResult(data) {
   container.innerHTML = html;
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // HISTORY
-// ══════════════════════════════════════════════════════
+// 
 async function loadHistory() {
   const container = document.getElementById('history-list');
   container.innerHTML = 'Загрузка...';
@@ -1318,9 +1357,9 @@ function showHistoryDetail(i) {
   }
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // ARTIFACTS
-// ══════════════════════════════════════════════════════
+// 
 async function loadArtifacts() {
   const container = document.getElementById('artifacts-list');
   container.innerHTML = 'Загрузка...';
@@ -1437,9 +1476,9 @@ window.onclick = e => {
   if (e.target === document.getElementById('trackerModal')) closeTracker();
 };
 
-// ══════════════════════════════════════════════════════
+// 
 // 3D GRAPH — with proper force settings
-// ══════════════════════════════════════════════════════
+// 
 let graph3d = null;
 
 function getNodeSize(node) {
@@ -1584,9 +1623,9 @@ window.addEventListener('resize', () => {
   }
 });
 
-// ══════════════════════════════════════════════════════
+// 
 // QUARANTINE — click shows entry details, delete by job_id
-// ══════════════════════════════════════════════════════
+// 
 async function loadQuarantine() {
   const container = document.getElementById('quarantine-list');
   container.innerHTML = 'Загрузка...';
@@ -1675,9 +1714,9 @@ async function deleteFromQuarantine(jobId, idx) {
   }
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // TRASH
-// ══════════════════════════════════════════════════════
+// 
 async function loadTrash() {
   const container = document.getElementById('trash-list');
   container.innerHTML = 'Загрузка...';
@@ -1756,9 +1795,9 @@ async function permanentDelete(artId) {
   } catch(e) { alert('Ошибка: ' + e.message); }
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // QUESTION GENERATOR
-// ══════════════════════════════════════════════════════
+// 
 let currentMode = 'manual';
 function setMode(mode) {
   currentMode = mode;
@@ -1834,9 +1873,9 @@ async function generateClarification() {
   } catch(e) { status.textContent = '❌ ' + e.message; }
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // MATH TAB
-// ══════════════════════════════════════════════════════
+// 
 function renderFourDMatrix(fd, jobId) {
   if (!fd || typeof fd !== 'object') {
     document.getElementById('four-d-empty').style.display = 'block';
@@ -2128,9 +2167,9 @@ async function loadMathStats() {
   } catch(e) {}
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // TRACKER
-// ══════════════════════════════════════════════════════
+// 
 function openTracker() {
   document.getElementById('trackerModal').style.display = 'block';
   loadTrackerStats();
@@ -2327,9 +2366,9 @@ async function addProvider() {
   } catch(err) { alert('Ошибка: ' + err.message); }
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // UTILS
-// ══════════════════════════════════════════════════════
+// 
 function fmtNum(n) {
   if (n===undefined||n===null) return '—';
   if (n>=1000000) return (n/1000000).toFixed(1)+'M';
@@ -2351,9 +2390,9 @@ function escHtml(str) {
   return String(str||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// ══════════════════════════════════════════════════════
+// 
 // INIT
-// ══════════════════════════════════════════════════════
+// 
 window.onload = () => {
   loadHistory();
   loadArtifacts();

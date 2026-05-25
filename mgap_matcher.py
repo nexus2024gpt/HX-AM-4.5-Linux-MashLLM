@@ -565,6 +565,47 @@ def _build_similarity_explanation(
     }
 
 
+# ══════════════════════════════════════════════════════
+# ЧЕЛОВЕКО-ЧИТАЕМОЕ РЕЗЮМЕ РАСЧЁТА
+# ══════════════════════════════════════════════════════
+
+def _build_calculation_summary(
+    calc: Dict,
+    artifact_calc: Dict,
+    thresholds: Dict,
+) -> str:
+    parts: list[str] = []
+    warns = artifact_calc.get("warnings", [])
+    if warns:
+        parts.append("⚠ " + "; ".join(warns[:2]))
+    else:
+        parts.append("✓ Параметры артефакта в норме")
+    t = calc.get("example_type", "")
+    if t == "graph_invariant":
+        mult = calc.get("multiplier", 1.0)
+        if calc.get("warning_triggered"):
+            parts.append(f"Буфер ×{mult:.2f}")
+    elif t == "kuramoto":
+        if not calc.get("stable", True):
+            parts.append(f"K < K_c: синхронизация отсутствует")
+    elif t == "delay":
+        margin = calc.get("stability_margin")
+        if margin is not None:
+            parts.append(f"Запас устойч.={margin:.3f}")
+    elif t == "percolation":
+        risk = calc.get("cascade_risk", 0.0)
+        if risk > 0:
+            parts.append(f"Риск каскада {risk:.0%}")
+    elif t == "ising":
+        order = calc.get("order_parameter")
+        if order is not None:
+            parts.append(f"Пар. порядка={order:.3f}")
+    eta_c = thresholds.get("eta_critical", 0)
+    tau_c = thresholds.get("tau_robustness", 0)
+    parts.append(f"η_crit={eta_c:.3f}  τ_crit={tau_c:.3f}")
+    return " | ".join(parts)
+
+
 # ══════════════════════════════════════════════════════════
 # ВЕРДИКТ — учитывает survival_verified и stability_score
 # ══════════════════════════════════════════════════════════
@@ -841,6 +882,11 @@ class MGAPMatcher:
             "disc_code":      model.get("disc_code"),
             "sector_code":    model.get("sector_code"),
             "resonance":      resonance,
+            "resonance_tier": (
+                "высокий" if resonance >= 0.8 else
+                "средний" if resonance >= 0.65 else
+                "низкий"
+            ),
             "math_type_match": math_match,
             "artifact_summary": {
                 "domain":           artifact.get("data", {}).get("domain", "—"),
@@ -859,6 +905,9 @@ class MGAPMatcher:
                 "programs":     model.get("programs", []),
             },
             "calculation":        calculation,
+            "calculation_summary": _build_calculation_summary(
+                calculation, artifact_calc, thresholds
+            ),
             "artifact_check":     artifact_calc,
             "verdict":            verdict,
             "generated_at":  __import__("datetime").datetime.utcnow().isoformat() + "Z",
