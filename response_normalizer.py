@@ -71,6 +71,43 @@ SURVIVAL_MAP: Dict[str, str] = {
 }
 
 # ════════════════════════════════════════════════════════════════
+# GARBAGE DETECTION
+# ════════════════════════════════════════════════════════════════
+
+_LLM_GARBAGE_RE = re.compile(
+    r"(<\|channel\>[^<]*|<\|/channel\>|<think>|</think>"
+    r"|<\|im_start\|>|<\|im_end\|>|<\|endoftext\|>|<\|eot_id\|>"
+    r"|<\|[a-zA-Z0-9_]+\|?>)",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+_GARBAGE_EXACT = frozenset([
+    "<|channel>thought", "<|channel>", "<think>", "thought",
+    "<s>", "</s>", "<|im_start|>", "<|im_end|>",
+    "<|endoftext|>", "<|eot_id|>",
+])
+
+
+def is_garbage_text(text: str, min_meaningful_chars: int = 20) -> bool:
+    """True если строка является мусором (утечка LLM-спецтокенов)."""
+    if not text:
+        return True
+    s = text.strip()
+    if s in _GARBAGE_EXACT:
+        return True
+    cleaned = _LLM_GARBAGE_RE.sub("", s).strip()
+    cleaned = re.sub(r"<[^>]{1,40}>", "", cleaned).strip()
+    return len(cleaned) < min_meaningful_chars
+
+
+def clean_llm_artifacts(text: str) -> str:
+    """Удаляет LLM-артефакты из строки."""
+    if not text:
+        return text
+    return _LLM_GARBAGE_RE.sub("", text).strip().lstrip("\n")
+
+
+# ════════════════════════════════════════════════════════════════
 # FIELD ALIASES
 # ════════════════════════════════════════════════════════════════
 GEN_ALIASES: Dict[str, List[str]] = {
@@ -604,6 +641,17 @@ def normalize_gen(raw_text: str) -> Tuple[dict, List[str], bool]:
         data["four_d_matrix"] = None
 
     hypothesis = str(data.get("hypothesis", "")).strip()
+    # Очистка от служебных токенов и проверка на мусор
+    if hypothesis:
+        hypothesis_clean = clean_llm_artifacts(hypothesis)
+        if hypothesis_clean != hypothesis:
+            repairs.append("hypothesis: stripped LLM artifacts")
+            hypothesis = hypothesis_clean
+            data["hypothesis"] = hypothesis
+    if is_garbage_text(hypothesis, 20):
+        repairs.append(f"hypothesis garbage: '{hypothesis[:40]}'")
+        hypothesis = ""
+        data["hypothesis"] = ""
     if not hypothesis or len(hypothesis) < 20:
         candidates = [
             ("mechanism", str(data.get("mechanism", "")).strip()),
@@ -630,6 +678,16 @@ def normalize_gen(raw_text: str) -> Tuple[dict, List[str], bool]:
     if not data.get("mechanism"):
         data["mechanism"] = hypothesis[:200]
         repairs.append("mechanism missing→copied from hypothesis")
+    # Очистка implication от мусора
+    impl = str(data.get("implication", "")).strip()
+    if impl:
+        impl2 = clean_llm_artifacts(impl)
+        if is_garbage_text(impl2, 10):
+            data["implication"] = ""
+            repairs.append(f"implication garbage cleared: '{impl[:40]}'")
+        elif impl2 != impl:
+            data["implication"] = impl2
+            repairs.append("implication: stripped LLM artifacts")
 
     if repairs:
         logger.info(f"normalize_gen: {len(repairs)} repair(s): " + " | ".join(repairs[:5]) + (" | ..." if len(repairs) > 5 else ""))

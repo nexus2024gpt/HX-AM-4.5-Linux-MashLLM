@@ -88,10 +88,19 @@ class PipelineGuard:
             )
 
         hypothesis = str(gen.get("hypothesis", "")).strip()
-        if len(hypothesis) < 10:
+        try:
+            from response_normalizer import is_garbage_text
+            if is_garbage_text(hypothesis, min_meaningful_chars=20):
+                return ValidationResult(
+                    False, FailureCode.GEN_NO_HYPOTHESIS,
+                    f"Hypothesis is LLM garbage: '{hypothesis[:60]}' (model: {model})"
+                )
+        except ImportError:
+            pass
+        if len(hypothesis) < 20:
             return ValidationResult(
                 False, FailureCode.GEN_NO_HYPOTHESIS,
-                f"Hypothesis missing or critically short after normalization: '{hypothesis[:60]}'"
+                f"Hypothesis too short after normalization: '{hypothesis[:60]}'"
             )
 
         b_sync = gen.get("b_sync")

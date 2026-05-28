@@ -45,19 +45,57 @@ _MESH_BASE = os.getenv("MASH_BASE_URL", "http://localhost:9337")
 _MESH_CB_KEY = "__mesh_auto__"
 
 
-# ── Think-block stripper (Qwen3 / DeepSeek reasoning mode) ───────────────────
+# ── Think-block & special-token stripper (Qwen3 / MeshLLM / llama.cpp) ──────
 _THINK_RE      = re.compile(r"<think>.*?</think>", flags=re.DOTALL | re.IGNORECASE)
 _THINK_OPEN_RE = re.compile(r"<think>.*$",         flags=re.DOTALL | re.IGNORECASE)
 
+# Qwen3 MeshLLM channel tokens
+_CHANNEL_RE      = re.compile(r"<\|channel\>.*?<\|/channel\>", flags=re.DOTALL | re.IGNORECASE)
+_CHANNEL_OPEN_RE = re.compile(r"<\|channel\>.*$",               flags=re.DOTALL | re.IGNORECASE)
+
+# Одиночные спецтокены формата <|token|> или <|token>
+_SPECIAL_TOKEN_RE = re.compile(r"<\|[a-zA-Z0-9_]+\|?>", flags=re.IGNORECASE)
+
+# Строки являющиеся чистым мусором
+GARBAGE_PATTERNS = frozenset([
+    "<|channel>thought", "<|channel>", "<think>",
+    "<|im_start|>", "<|im_end|>", "<|endoftext|>", "<|eot_id|>",
+    "<s>", "</s>",
+])
+
+
+def _is_garbage_response(text: str) -> bool:
+    """True если ответ состоит только из служебных токенов."""
+    if not text:
+        return True
+    stripped = text.strip()
+    if stripped in GARBAGE_PATTERNS:
+        return True
+    clean = _SPECIAL_TOKEN_RE.sub("", stripped).strip()
+    clean = re.sub(r"<[^>]{1,30}>", "", clean).strip()
+    return len(clean) < 10
+
+
 def _strip_think(text: str) -> str:
-    """Удаляет <think>…</think> из вывода LLM. Работает с закрытыми и незакрытыми блоками."""
-    if not text or "<think>" not in text.lower():
+    """
+    Удаляет блоки размышлений и служебные токены из вывода LLM.
+    Обрабатывает: <think>, <|channel>thought, <|im_start|> и аналоги.
+    """
+    if not text:
         return text
-    result = _THINK_RE.sub("", text)
-    result = _THINK_OPEN_RE.sub("", result)
+    original_len = len(text)
+    result = text
+    if "<think>" in result.lower():
+        result = _THINK_RE.sub("", result)
+        result = _THINK_OPEN_RE.sub("", result)
+    if "<|channel>" in result.lower():
+        result = _CHANNEL_RE.sub("", result)
+        result = _CHANNEL_OPEN_RE.sub("", result)
+    if "<|" in result:
+        result = _SPECIAL_TOKEN_RE.sub("", result)
     result = result.lstrip("\n").strip()
-    if text != result:
-        logger.debug(f"_strip_think: удалено {len(text) - len(result)} символов")
+    if len(result) < original_len:
+        logger.debug(f"_strip_think: удалено {original_len - len(result)} символов, garbage={_is_garbage_response(result)}")
     return result
 
 

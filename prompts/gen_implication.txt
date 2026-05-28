@@ -1,3 +1,8 @@
+CRITICAL: Do NOT output special tokens or internal reasoning markers.
+Forbidden: <|channel>thought  <|channel>  <|/channel>  <think>  </think>
+          <|im_start|>  <|im_end|>  <|endoftext|>  <|eot_id|>
+Think silently. Output ONLY the requested text.
+
 ГИПОТЕЗА: {hypothesis}
 МЕХАНИЗМ: {mechanism}
 

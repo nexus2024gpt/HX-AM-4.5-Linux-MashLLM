@@ -39,6 +39,8 @@ REQUIRED fields (exact spelling required):
     freq = dominant cycle frequency [0,10]
 
 ANTIPATTERNS (never use):
+- DO NOT output special tokens: <|channel>thought <|channel> <|im_start|> <|im_end|> <|endoftext|> <think>
+- DO NOT output internal reasoning markers — think silently
 - DO NOT copy phrases from RAG context
 - DO NOT generate hypotheses solely about mathematics
 - DO NOT use clichés: "topological isomorphism", "preferential attachment", "resonance"
