@@ -1,4 +1,4 @@
-# mgap_matcher.py — HX-AM v4.5
+# mgap_matcher.py — HX-AM v4.6
 """
 MGAPMatcher — переносит численные инварианты из артефактов HX-AM
 в прикладные отраслевые модели (реестр MGAP).
@@ -10,6 +10,11 @@ v4.5 исправления:
   - Verdict учитывает stability_score < 0.5 (математически нестабильный)
   - _compute_resonance: нормализован type_bonus к правильным весам
   - v4.5.6: retry для blind_spot и match_analysis
+
+v4.6 исправления:
+  - _calculate_example использует p_crit из critical_thresholds модели
+  - graph_invariant поддерживает отраслевые контексты по logia
+  - percolation example синхронизирован с модельными порогами
 """
 
 from __future__ import annotations
@@ -33,6 +38,90 @@ _MATH_TYPE_ALIASES: Dict[str, str] = {
 
 ARTIFACTS_DIR = Path("artifacts")
 REGISTRY_PATH = Path("mgap_registry.json")
+
+LOGIA_GRAPH_INVARIANT_CONTEXT: Dict[str, Dict[str, Any]] = {
+    "Логистика": {
+        "flow_name":  "daily_sales",
+        "flow_label": "Среднедневные продажи",
+        "lag_label":  "Срок поставки (дней)",
+        "buffer_label": "Страховой запас (коэф.)",
+        "flow_mean":  100.0,
+        "flow_std":   30.0,
+        "lag":        3.0,
+        "old_coef":   0.2,
+    },
+    "Астрономия": {
+        "flow_name":  "orbital_velocity",
+        "flow_label": "Орбитальная скорость",
+        "lag_label":  "Время передачи сигнала",
+        "buffer_label": "Запас стабильности орбиты",
+        "flow_mean":  1.0,
+        "flow_std":   0.3,
+        "lag":        2.0,
+        "old_coef":   0.15,
+    },
+    "Экология": {
+        "flow_name":  "biomass_flow",
+        "flow_label": "Поток биомассы (т/год)",
+        "lag_label":  "Время оборота популяции (лет)",
+        "buffer_label": "Резервный запас биомассы (коэф.)",
+        "flow_mean":  500.0,
+        "flow_std":   150.0,
+        "lag":        5.0,
+        "old_coef":   0.25,
+    },
+    "Инженерия": {
+        "flow_name":  "throughput",
+        "flow_label": "Пропускная способность",
+        "lag_label":  "Задержка передачи (мс)",
+        "buffer_label": "Резерв буфера (коэф.)",
+        "flow_mean":  1000.0,
+        "flow_std":   200.0,
+        "lag":        1.5,
+        "old_coef":   0.1,
+    },
+    "Политология": {
+        "flow_name":  "influence_flow",
+        "flow_label": "Поток влияния (индекс)",
+        "lag_label":  "Задержка реакции системы (мес.)",
+        "buffer_label": "Резерв институциональной устойчивости",
+        "flow_mean":  50.0,
+        "flow_std":   20.0,
+        "lag":        6.0,
+        "old_coef":   0.3,
+    },
+    "Социология": {
+        "flow_name":  "information_flow",
+        "flow_label": "Поток информации (ед./час)",
+        "lag_label":  "Время распространения (часы)",
+        "buffer_label": "Буфер фильтрации контента",
+        "flow_mean":  200.0,
+        "flow_std":   80.0,
+        "lag":        4.0,
+        "old_coef":   0.2,
+    },
+    "Технологии": {
+        "flow_name":  "request_rate",
+        "flow_label": "Частота запросов (req/s)",
+        "lag_label":  "Задержка ответа (мс)",
+        "buffer_label": "Буфер очереди (коэф.)",
+        "flow_mean":  500.0,
+        "flow_std":   100.0,
+        "lag":        0.8,
+        "old_coef":   0.15,
+    },
+}
+
+_DEFAULT_GI_CONTEXT: Dict[str, Any] = {
+    "flow_name":  "flow_value",
+    "flow_label": "Значение потока",
+    "lag_label":  "Задержка (ед. времени)",
+    "buffer_label": "Коэффициент буфера",
+    "flow_mean":  100.0,
+    "flow_std":   30.0,
+    "lag":        3.0,
+    "old_coef":   0.2,
+}
 
 
 def _norm_math_type(t: str) -> str:
@@ -195,7 +284,6 @@ def _generate_code(model: Dict, thresholds: Dict, flat: Dict) -> str:
         )
 
     elif mt == "ising":
-        # v4.5: добавлена поддержка Изинга
         K_min = model.get("critical_thresholds", {}).get("K_min", 0.4)
         T_crit = model.get("critical_thresholds", {}).get("T_crit", 1.0)
         return (
@@ -226,7 +314,6 @@ def _generate_code(model: Dict, thresholds: Dict, flat: Dict) -> str:
             f"        warnings.append(\n"
             f"            f'τ={{tau_relax:.3f}} > τ_crit={tau_c:.3f}: релаксация слишком медленная'\n"
             f"        )\n"
-            f"    # Параметр порядка (mean-field)\n"
             f"    try:\n"
             f"        m = math.tanh(K_coupling / max(T_temperature, 0.01))\n"
             f"    except Exception:\n"
@@ -291,22 +378,46 @@ def _calculate_example(model: Dict, thresholds: Dict) -> Dict:
     eta_c   = thresholds["eta_critical"]
     tau_c   = thresholds["tau_robustness"]
     t       = example.get("type", "graph_invariant")
+    logia   = model.get("logia", "")
+    ct      = model.get("critical_thresholds", {})
 
     if t == "graph_invariant":
-        d_mean  = float(example.get("daily_sales_mean", 100))
-        d_std   = float(example.get("daily_sales_std",   30))
-        lag     = float(example.get("current_lead_time",  3.0))
-        old_buf = float(example.get("old_safety_stock_coef", 0.2))
+        ctx = LOGIA_GRAPH_INVARIANT_CONTEXT.get(logia, _DEFAULT_GI_CONTEXT)
+
+        d_mean  = float(example.get("daily_sales_mean",
+                        example.get("flow_mean", ctx["flow_mean"])))
+        d_std   = float(example.get("daily_sales_std",
+                        example.get("flow_std",  ctx["flow_std"])))
+        lag     = float(example.get("current_lead_time",
+                        example.get("lag", ctx["lag"])))
+        old_buf = float(example.get("old_safety_stock_coef",
+                        example.get("old_coef", ctx["old_coef"])))
+
         eta  = d_std / max(d_mean, 1e-9)
         warn = (eta > eta_c) or (lag > tau_c)
         mult = max(1.0, (eta / eta_c) * (lag / tau_c)) if warn else 1.0
+
         return {
-            "example_type": "graph_invariant", "input": example,
-            "computed_cv": round(eta, 4), "lag": lag,
-            "eta_critical": eta_c, "tau_critical": tau_c,
-            "old_buffer": round(old_buf * d_mean * lag, 2),
-            "multiplier": round(mult, 4),
-            "new_buffer": round(old_buf * d_mean * lag * mult, 2),
+            "example_type":    "graph_invariant",
+            "logia":           logia,
+            "input": {
+                ctx["flow_name"] + "_mean": d_mean,
+                ctx["flow_name"] + "_std":  d_std,
+                "lag_value":                lag,
+                "old_buffer_coef":          old_buf,
+                "_labels": {
+                    "flow":   ctx["flow_label"],
+                    "lag":    ctx["lag_label"],
+                    "buffer": ctx["buffer_label"],
+                },
+            },
+            "computed_cv":   round(eta, 4),
+            "lag":           lag,
+            "eta_critical":  eta_c,
+            "tau_critical":  tau_c,
+            "old_buffer":    round(old_buf * d_mean * lag, 2),
+            "multiplier":    round(mult, 4),
+            "new_buffer":    round(old_buf * d_mean * lag * mult, 2),
             "warning_triggered": warn,
         }
 
@@ -322,39 +433,46 @@ def _calculate_example(model: Dict, thresholds: Dict) -> Dict:
         if noise > eta_c: warns.append(f"η={noise:.3f} > η_crit={eta_c:.3f}")
         if delay > tau_c: warns.append(f"τ={delay:.3f} > τ_crit={tau_c:.3f}")
         return {
-            "example_type": "kuramoto", "input": example,
-            "K_above_Kc": K > K_c, "noise_ok": noise <= eta_c, "delay_ok": delay <= tau_c,
-            "warnings": warns, "stable": len(warns) == 0, "warning_triggered": len(warns) > 0,
+            "example_type": "kuramoto",
+            "logia":        logia,
+            "input":        example,
+            "K_above_Kc":   K > K_c,
+            "noise_ok":     noise <= eta_c,
+            "delay_ok":     delay <= tau_c,
+            "warnings":     warns,
+            "stable":       len(warns) == 0,
+            "warning_triggered": len(warns) > 0,
         }
 
     elif t == "delay":
         K     = float(example.get("coupling_K",   0.3))
         noise = float(example.get("noise_eta",    0.2))
         delay = float(example.get("delay_tau",    1.0))
-        K_min = model.get("critical_thresholds", {}).get("K_min", 0.1)
+        K_min = float(ct.get("K_min", 0.1))
         m_n   = 1 - noise / max(eta_c, 1e-9)
         m_d   = 1 - delay / max(tau_c, 1e-9)
         m_k   = (K - K_min) / max(K_min, 1e-9)
         margin = min(m_n, m_d, m_k)
         return {
-            "example_type": "delay", "input": example,
-            "stability_margin": round(margin, 4), "noise_margin": round(m_n, 4),
-            "delay_margin": round(m_d, 4), "coupling_margin": round(m_k, 4),
+            "example_type":     "delay",
+            "logia":            logia,
+            "input":            example,
+            "stability_margin": round(margin, 4),
+            "noise_margin":     round(m_n, 4),
+            "delay_margin":     round(m_d, 4),
+            "coupling_margin":  round(m_k, 4),
             "warning_triggered": margin < 0.2,
         }
 
     elif t == "ising":
-        # v4.5: добавлена поддержка типа ising
         import math
         K     = float(example.get("coupling_K",    0.8))
         T     = float(example.get("T_temperature", 0.9))
         noise = float(example.get("noise_eta",     0.15))
-        tau   = float(example.get("tau_relax",     example.get("delay_tau", 1.0)))
-        lat   = int(example.get("lattice_size",    64))
+        tau   = float(example.get("tau_relax",
+                      example.get("delay_tau", 1.0)))
 
-        # T_crit ≈ K в mean-field
         T_c = K
-        # Параметр порядка mean-field Ising: m = tanh(K*m / T) → m = tanh(K/T) при h=0
         try:
             m_val = math.tanh(K / max(T, 0.01))
         except Exception:
@@ -363,42 +481,51 @@ def _calculate_example(model: Dict, thresholds: Dict) -> Dict:
 
         warns = []
         if T >= T_c:       warns.append(f"T={T:.3f} ≥ T_c={T_c:.3f}: неупорядоченная фаза")
-        if noise > eta_c:  warns.append(f"η={noise:.3f} > η_crit={eta_c:.3f}: флуктуации разрушают порядок")
-        if tau > tau_c:    warns.append(f"τ={tau:.3f} > τ_crit={tau_c:.3f}: медленная релаксация")
+        if noise > eta_c:  warns.append(f"η={noise:.3f} > η_crit={eta_c:.3f}")
+        if tau > tau_c:    warns.append(f"τ={tau:.3f} > τ_crit={tau_c:.3f}")
 
         stable = len(warns) == 0 and order_noisy > 0.3
         return {
-            "example_type":     "ising",
-            "input":            example,
-            "T_c_approx":       round(T_c, 4),
-            "order_parameter":  round(order_noisy, 4),
-            "phase":            "ordered" if T < T_c else "disordered",
-            "K_above_Kc":       True,   # K > K_c (stable coupling)
-            "noise_ok":         noise <= eta_c,
-            "relax_ok":         tau <= tau_c,
-            "warnings":         warns,
-            "stable":           stable,
+            "example_type":    "ising",
+            "logia":           logia,
+            "input":           example,
+            "T_c_approx":      round(T_c, 4),
+            "order_parameter": round(order_noisy, 4),
+            "phase":           "ordered" if T < T_c else "disordered",
+            "K_above_Kc":      True,
+            "noise_ok":        noise <= eta_c,
+            "relax_ok":        tau <= tau_c,
+            "warnings":        warns,
+            "stable":          stable,
             "warning_triggered": len(warns) > 0,
         }
 
     elif t == "percolation":
+        p_crit = float(
+            ct.get("p_crit") or
+            example.get("p_crit") or
+            0.37
+        )
         p     = float(example.get("p_measured",       0.52))
-        p_c   = float(example.get("p_crit",           0.37))
         K     = float(example.get("K_connectivity",   0.48))
         noise = float(example.get("noise_eta",        0.38))
         tau   = float(example.get("tau_lag_months",
                       example.get("monitoring_period_years", 6.8)))
-        above = p > p_c
-        cascade_risk = max(0.0, (p - p_c) / (1 - p_c)) if above else 0.0
+        above = p > p_crit
+        cascade_risk = max(0.0, (p - p_crit) / (1 - p_crit)) if above else 0.0
         warns = []
-        if above:         warns.append(f"p={p:.3f} > p_crit={p_c:.3f}: каскадный режим")
-        if noise > eta_c: warns.append(f"η={noise:.3f} > η_crit={eta_c:.3f}: высокая гетерогенность")
-        if tau > tau_c:   warns.append(f"τ={tau:.3f} > τ_crit={tau_c:.3f}: долгое накопление")
+        if above:         warns.append(f"p={p:.3f} > p_crit={p_crit:.3f}: каскадный режим")
+        if noise > eta_c: warns.append(f"η={noise:.3f} > η_crit={eta_c:.3f}")
+        if tau > tau_c:   warns.append(f"τ={tau:.3f} > τ_crit={tau_c:.3f}")
         compound = round(cascade_risk * max(1.0, noise / max(eta_c, 1e-9)), 3)
         return {
             "example_type":    "percolation",
-            "input":           example,
-            "p_crit":          p_c,
+            "logia":           logia,
+            "input": {
+                **example,
+                "p_crit": p_crit,
+            },
+            "p_crit":          p_crit,
             "above_threshold": above,
             "cascade_risk":    round(cascade_risk, 4),
             "compound_risk":   compound,
@@ -408,8 +535,30 @@ def _calculate_example(model: Dict, thresholds: Dict) -> Dict:
             "warning_triggered": len(warns) > 0,
         }
 
-    return {"error": f"unknown example_data type: {t}",
-            "supported": ["graph_invariant", "kuramoto", "delay", "ising", "percolation"]}
+    elif t == "lotka_volterra":
+        K     = float(example.get("interaction",     0.5))
+        noise = float(example.get("noise_eta",       0.2))
+        tau   = float(example.get("tau_cycle",
+                      example.get("period_days", 10.0)))
+        K_min = float(ct.get("K_min", 0.2))
+        warns = []
+        if K > K_min + 0.3:  warns.append(f"K={K:.3f}: конкуренция подавляет коэксистенцию")
+        if noise > eta_c:    warns.append(f"η={noise:.3f} > η_crit={eta_c:.3f}")
+        if tau > tau_c:      warns.append(f"τ={tau:.3f} > τ_crit={tau_c:.3f}")
+        return {
+            "example_type":    "lotka_volterra",
+            "logia":           logia,
+            "input":           example,
+            "interaction_K":   K,
+            "warnings":        warns,
+            "stable":          len(warns) == 0,
+            "warning_triggered": len(warns) > 0,
+        }
+
+    return {
+        "error":     f"unknown example_data type: {t}",
+        "supported": ["graph_invariant", "kuramoto", "delay", "ising", "percolation", "lotka_volterra"],
+    }
 
 
 # ══════════════════════════════════════════════════════════
@@ -497,11 +646,9 @@ def _build_similarity_explanation(
     mt = _norm_math_type(model.get("math_type", ""))
     hyp_lower = artifact_hypothesis.lower()
 
-    # 1. Совпадение ключевых слов
     keywords = _MATHTYPE_KEYWORDS.get(mt, [])
     found_kw = [kw for kw in keywords if kw in hyp_lower]
 
-    # 2. Близость параметров (сравниваем с 4D модели)
     m4d   = model.get("four_d_matrix") or {}
     m_dyn = m4d.get("dynamics", {})
     m_inf = m4d.get("influence", {})
@@ -532,12 +679,10 @@ def _build_similarity_explanation(
 
     close_params = [r["param"] for r in param_rows if r["close"]]
 
-    # 3. Доменный мост
-    art_domain   = "neuroscience"          # из контекста; передаётся снаружи через flat
+    art_domain   = flat.get("artifact_domain", "neuroscience")
     model_logia  = model.get("logia", "")
     domain_bridge = f"{art_domain} → {model_logia}"
 
-    # 4. Уровень резонанса
     if resonance >= 0.8:
         tier = "высокий"
     elif resonance >= 0.65:
@@ -545,7 +690,6 @@ def _build_similarity_explanation(
     else:
         tier = "низкий"
 
-    # 5. Текстовое объяснение
     kw_str    = ", ".join(found_kw[:5]) if found_kw else "нет явных совпадений"
     close_str = ", ".join(close_params) if close_params else "нет близких параметров"
     explanation = (
@@ -918,14 +1062,29 @@ class MGAPMatcher:
         return result
 
     def _translate_params(self, flat: Dict, thresholds: Dict, model: Dict) -> Dict:
-        tmap   = model.get("translation_map") or {}
-        result: Dict = {}
-        mt = _norm_math_type(model.get("math_type", ""))
+        tmap = model.get("translation_map") or {}
+        mt   = _norm_math_type(model.get("math_type", ""))
+
         if mt == "ising":
             key_params = [("T", flat["T"]), ("K", flat["K"]), ("eta", flat["eta"])]
+        elif mt in ("percolation",):
+            key_params = [("p",   flat["p"]),
+                          ("K",   flat["K"]),
+                          ("eta", flat["eta"])]
+        elif mt in ("lotka_volterra",):
+            key_params = [("K",   flat["K"]),
+                          ("tau", flat["tau"]),
+                          ("eta", flat["eta"])]
+        elif mt in ("delay", "delay_ode"):
+            key_params = [("tau", flat["tau"]),
+                          ("K",   flat["K"]),
+                          ("eta", flat["eta"])]
         else:
-            key_params = [("tau", flat["tau"]), ("K", flat["K"]), ("eta", flat["eta"])]
+            key_params = [("tau", flat["tau"]),
+                          ("K",   flat["K"]),
+                          ("eta", flat["eta"])]
 
+        result: Dict = {}
         for key, val in key_params:
             if key in tmap:
                 entry = tmap[key]
@@ -945,15 +1104,29 @@ class MGAPMatcher:
         return result
 
     def _improve_blind_spot(self, template: str, model: Dict) -> str:
-        if not self.llm or not template:
+        if not template:
+            return template
+        if len(template) >= 80:
+            return template
+
+        if not self.llm:
             return template
 
         from retry_manager import retry_manager
 
+        mt     = _norm_math_type(model.get("math_type", ""))
+        logia  = model.get("logia", "неизвестная отрасль")
+        name   = model.get("name", "")
+
         prompt = (
-            f"Улучши описание слепой зоны для модели «{model.get('name')}» "
-            f"(отрасль: {model.get('logia')}). Сохрани все числа. "
-            f"Верни ТОЛЬКО улучшенный текст, одним абзацем:\n{template}"
+            f"Дополни ОДНИМ предложением описание слепой зоны для модели «{name}» "
+            f"(отрасль: {logia}, тип: {mt}).\n"
+            f"Правила:\n"
+            f"  - Сохрани ВСЕ числа из исходного текста.\n"
+            f"  - Добавь конкретное отраслевое последствие (что именно произойдёт в {logia}).\n"
+            f"  - НЕ добавляй общих слов типа «система», «процесс», «механизм» без конкретики.\n"
+            f"  - Ответ: только готовый текст, одним абзацем, без пояснений.\n\n"
+            f"Исходный текст:\n{template}"
         )
 
         def _call():
@@ -962,13 +1135,16 @@ class MGAPMatcher:
 
         result = retry_manager.call_with_retry(
             func=_call,
-            validator=retry_manager.validator_field(min_len=30),
+            validator=retry_manager.validator_field(min_len=40),
             context="mgap/blind_spot",
         )
 
         if result and result.value:
             improved, _ = result.value
-            return improved.strip()
+            improved = improved.strip()
+            if len(improved) > 500 or "инструкц" in improved.lower():
+                return template
+            return improved
         return template
 
     def _llm_analyze_match(
@@ -979,44 +1155,70 @@ class MGAPMatcher:
         flat: Dict,
         thresholds: Dict,
     ) -> Optional[Dict]:
-        """
-        v4.5.1: LLM-анализ совместимости инварианта с отраслевой моделью.
-        Вызывается только если resonance >= 0.5 (экономия токенов).
-        """
         if not self.llm or resonance < 0.5:
             return None
 
-        gen = artifact.get("data", {}).get("gen", {})
-        hypothesis = gen.get("hypothesis", "")[:300]
+        gen        = artifact.get("data", {}).get("gen", {})
+        hypothesis = gen.get("hypothesis", "")[:250]
         if not hypothesis:
             return None
 
-        prompt = f"""Ты — аналитик HX-AM. Оцени применимость инварианта к отраслевой модели.
+        mt         = _norm_math_type(model.get("math_type", ""))
+        logia      = model.get("logia", "")
+        name       = model.get("name", "")
+        progs      = ", ".join(model.get("programs", [])[:2])
+        eta_c      = thresholds["eta_critical"]
+        tau_c      = thresholds["tau_robustness"]
+        K_val      = flat.get("K", 0.35)
+        eta_val    = flat.get("eta", 0.2)
+        tau_val    = flat.get("tau", 0.5)
+        art_domain = artifact.get("data", {}).get("domain", "?")
 
-Инвариант: {hypothesis}
-Домен: {artifact.get("data", {}).get("domain", "?")}
-Резонанс 4D: {resonance:.3f}
+        eta_ok  = eta_val <= eta_c
+        tau_ok  = tau_val <= tau_c
 
-Модель: {model.get("name")} ({model.get("logia")})
-math_type: {model.get("math_type")}
-Программы: {", ".join(model.get("programs", [])[:3])}
-Параметры артефакта: K={flat.get("K"):.3f}, η={flat.get("eta"):.3f}, τ={flat.get("tau"):.3f}
-Критические пороги: η_crit={thresholds["eta_critical"]:.3f}, τ_crit={thresholds["tau_robustness"]:.3f}
+        fewshot = (
+            'Пример хорошего ответа:\n'
+            '{"why_applicable": "Инвариант (синхронизация нейронов) переносится в модель '
+            'нейронной синхронизации: оба используют kuramoto с K=0.874 > K_c=0.508. '
+            'η=0.22 ниже η_crit=0.38 — шум не разрушает когерентность.", '
+            '"main_risk": "τ=1.479 близко к τ_crit=2.3: рост задержек на 50% '
+            'переведёт систему за порог, что в Brian2 даст desync.", '
+            '"dev_action": "Добавить mgap_stability_monitor(K=0.874, eta=0.22, tau=1.479) '
+            'перед вызовом simulate() в Brian2.", '
+            '"confidence": 0.8}'
+        )
 
-Дай КРАТКИЙ анализ (2-3 предложения) на русском:
-1. Почему инвариант применим к данной модели
-2. Главный риск при внедрении
-3. Конкретное действие для разработчика
+        prompt = (
+            f"Ты MGAP-аналитик. Оцени применимость инварианта к отраслевой модели.\n\n"
+            f"{fewshot}\n\n"
+            f"---\n"
+            f"Инвариант ({art_domain}): {hypothesis}\n"
+            f"Модель: {name} ({logia}), math_type={mt}\n"
+            f"Программы: {progs}\n\n"
+            f"Числовые параметры артефакта:\n"
+            f"  K={K_val:.3f}  η={eta_val:.3f}  τ={tau_val:.3f}\n"
+            f"  η_crit={eta_c:.3f} ('ok'={str(eta_ok)})  "
+            f"  τ_crit={tau_c:.3f} ('ok'={str(tau_ok)})\n\n"
+            f"Правила ответа:\n"
+            f"  1. why_applicable: укажи конкретные параметры (K, η, τ) и почему они подходят.\n"
+            f"  2. main_risk: укажи конкретный порог который ближе всего к нарушению + "
+            f"что произойдёт в {progs or 'программе'}.\n"
+            f"  3. dev_action: конкретная строка кода/вызов функции в {progs or 'системе'}.\n"
+            f"  4. НЕ пересказывай гипотезу. Только анализ применимости.\n"
+            f"  5. Все числа из блока выше должны фигурировать в ответе.\n\n"
+            f"Верни ТОЛЬКО JSON (без пояснений):\n"
+            f'{{"why_applicable": "...", "main_risk": "...", '
+            f'"dev_action": "...", "confidence": 0.0}}'
+        )
 
-Верни ТОЛЬКО JSON:
-{{"why_applicable": "...", "main_risk": "...", "dev_action": "...", "confidence": 0.0}}"""
-
-        from retry_manager import retry_manager
+        import re
 
         def _call_analysis():
             text, model_used = self._llm_generate(prompt, purpose="match_analysis")
             return text, model_used
 
+        from retry_manager import retry_manager
         result = retry_manager.call_with_retry(
             func=_call_analysis,
             validator=retry_manager.validator_field(min_len=40),
@@ -1030,15 +1232,14 @@ math_type: {model.get("math_type")}
         if not text:
             return None
 
-        import re
         cleaned = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
-        match = re.search(r"\{[\s\S]*\}", cleaned)
+        match   = re.search(r"\{[\s\S]*\}", cleaned)
         if not match:
             return None
         try:
-            result = json.loads(match.group(0))
-            result["_model"] = model_used.split("/")[-1] if model_used else "?"
-            return result
+            res = json.loads(match.group(0))
+            res["_model"] = model_used.split("/")[-1] if model_used else "?"
+            return res
         except Exception:
             return None
 
