@@ -1,390 +1,102 @@
 {
-  "version": "v4.5-mgap",
-  "created_at": "2026-04-22",
-  "description": "HX-AM Metric GAP Registry — покрывает все 6 math_type: kuramoto, percolation, ising, delay, graph_invariant, lotka_volterra",
-  "math_types_covered": ["kuramoto", "percolation", "ising", "delay", "graph_invariant", "lotka_volterra"],
+  "version": "v5.0-mgap",
+  "created_at": "2026-05-28",
+  "description": "HX-AM Metric GAP Registry v5.0 — универсальный кросс-доменный реестр из 30 высокоуровневых моделей. Покрывает все основные прикладные науки без излишней специализации.",
+  "math_types_covered": [
+    "kuramoto",
+    "percolation",
+    "ising",
+    "delay",
+    "graph_invariant",
+    "lotka_volterra"
+  ],
   "models": [
     {
-      "id": "M1",
-      "logia": "Логистика",
-      "industry": "Склад",
-      "name": "Kanban (pull)",
-      "math_type": "graph_invariant",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["WMS", "1C:WMS", "SAP EWM"],
-      "disc_code": "2",
-      "sector_code": "2.7",
-      "four_d_matrix": {
-        "structure": {"C": 0.78, "k": 22.0, "D": 2.1},
-        "influence": {"h": 1.2, "T": 0.8, "eta": 0.35},
-        "dynamics": {"omega_i": 0.15, "K": 0.55, "K_c": 0.45, "p": 0.68, "model": "graph_invariant"},
-        "time": {"tau": 3.2, "H": 0.65, "freq": 0.8}
-      },
-      "expected_ranges": {"tau": [1.0, 5.0], "K": [0.3, 0.8], "eta": [0.1, 0.6]},
-      "weights": {"tau": 0.4, "K": 0.4, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.6, "tau_max": 6.0, "K_min": 0.3},
-      "translation_map": {
-        "tau": {"industry_term": "Lead time поставщика (дни)", "description": "Среднее время от заказа до поступления товара", "typical_values": "1–30 дней"},
-        "K": {"industry_term": "Коэффициент реакции на дефицит", "description": "Интенсивность создания заказа при падении запаса ниже ROP", "typical_values": "0.3–0.8"},
-        "eta": {"industry_term": "Коэффициент вариации спроса CV = σ/μ", "description": "Относительная волатильность ежедневных продаж", "typical_values": "0.1–1.0"}
-      },
-      "blind_spot_template": "Стандартные алгоритмы WMS рассчитывают страховой запас линейно, игнорируя нелинейное взаимодействие: при CV>{eta_max} и L>{tau_max} дней стандартная формула занижает SS в 1.2–1.5 раза.",
-      "math_adaptation_formula": "multiplier = max(1.0, (CV / eta_crit) * (L / tau_crit)); SS_new = SS_old * multiplier",
-      "example_data": {"type": "graph_invariant", "daily_sales_mean": 100, "daily_sales_std": 65, "current_lead_time": 7.0, "old_safety_stock_coef": 0.2},
-      "description": "Система pull-управления запасами с локальной обратной связью"
-    },
-    {
-      "id": "M2",
-      "logia": "Логистика",
-      "industry": "Транспорт",
-      "name": "Маршрутизация с задержками",
-      "math_type": "kuramoto",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["OptiFlow", "HERE Routing", "Google Fleet"],
-      "disc_code": "2",
-      "sector_code": "2.7",
-      "four_d_matrix": {
-        "structure": {"C": 0.65, "k": 18.0, "D": 2.4},
-        "influence": {"h": 1.8, "T": 1.1, "eta": 0.28},
-        "dynamics": {"omega_i": 0.22, "K": 0.72, "K_c": 0.58, "p": 0.75, "model": "kuramoto"},
-        "time": {"tau": 1.8, "H": 0.55, "freq": 1.2}
-      },
-      "expected_ranges": {"tau": [0.5, 4.0], "K": [0.5, 1.0], "eta": [0.05, 0.5]},
-      "weights": {"tau": 0.5, "K": 0.3, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.35, "tau_max": 2.5, "K_min": 0.55},
-      "translation_map": {
-        "tau": {"industry_term": "Среднее время задержки маршрута (ч)", "description": "Характерная задержка между отправкой и прибытием груза", "typical_values": "0.5–8 ч"},
-        "K": {"industry_term": "Коэффициент синхронизации парка", "description": "Степень согласованности отправлений (K>K_c → устойчивые волны трафика)", "typical_values": "0.5–1.0"},
-        "eta": {"industry_term": "Коэффициент вариации времени в пути CV", "description": "σ/μ времён прохождения маршрутов", "typical_values": "0.05–0.5"}
-      },
-      "blind_spot_template": "Стандартные системы маршрутизации оптимизируют среднее время, но не отслеживают критическую задержку τ_max={tau_max} ч и уровень вариабельности η_max={eta_max}: при превышении маршрутная сеть теряет синхронизацию.",
-      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
-      "example_data": {"type": "kuramoto", "coupling_K": 0.72, "K_c": 0.58, "noise_eta": 0.28, "delay_tau_hours": 1.8, "route_count": 120},
-      "description": "Динамика транспортных потоков с запаздыванием и синхронизацией парка"
-    },
-    {
-      "id": "M3",
-      "logia": "Нейронауки",
-      "industry": "Клиническая (эпилепсия)",
-      "name": "Фазовая синхронизация",
-      "math_type": "kuramoto",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["EEGlab", "Brainstorm", "MNE-Python"],
-      "disc_code": "3",
-      "sector_code": "3.1",
-      "four_d_matrix": {
-        "structure": {"C": 0.82, "k": 12.0, "D": 2.3},
-        "influence": {"h": 2.1, "T": 0.9, "eta": 0.18},
-        "dynamics": {"omega_i": 0.35, "K": 0.88, "K_c": 0.65, "p": 0.82, "model": "kuramoto"},
-        "time": {"tau": 0.68, "H": 0.71, "freq": 4.5}
-      },
-      "expected_ranges": {"tau": [0.01, 2.0], "K": [0.5, 1.2], "eta": [0.05, 0.4]},
-      "weights": {"tau": 0.5, "K": 0.3, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.25, "tau_max": 1.5, "K_min": 0.65},
-      "translation_map": {
-        "tau": {"industry_term": "Задержка проведения сигнала (мс)", "description": "Время распространения возбуждения между кортикальными областями", "typical_values": "0.5–20 мс"},
-        "K": {"industry_term": "Сила кортикальной связи", "description": "Коэффициент функциональной связности (coherence) между электродами", "typical_values": "0.5–1.2"},
-        "eta": {"industry_term": "Уровень фонового шума ЭЭГ (нормализованный)", "description": "Отношение мощности артефактов к мощности сигнала", "typical_values": "0.05–0.4"}
-      },
-      "blind_spot_template": "Стандартные алгоритмы EEGlab отслеживают амплитуду и частоту, но не вычисляют критическую задержку τ_max={tau_max} мс и порог фонового шума η_max={eta_max}: при превышении система может пропустить начало иктального распространения.",
-      "math_adaptation_formula": "stability_warning = (K_coherence < K_c) or (noise_ratio > eta_crit) or (propagation_delay > tau_crit)",
-      "example_data": {"type": "kuramoto", "coupling_K": 0.88, "K_c": 0.65, "noise_eta": 0.18, "delay_tau_ms": 0.68, "channel_count": 64},
-      "description": "Фазовая синхронизация в корковых сетях при эпилептиформной активности"
-    },
-    {
-      "id": "M4",
-      "logia": "Нейронауки",
-      "industry": "Нейроморфные чипы",
-      "name": "Спайковая сеть (SNN)",
-      "math_type": "kuramoto",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["SpiNNaker", "Intel Loihi", "BrainScaleS"],
-      "disc_code": "3",
-      "sector_code": "3.1",
-      "four_d_matrix": {
-        "structure": {"C": 0.71, "k": 15.0, "D": 2.6},
-        "influence": {"h": 1.5, "T": 1.3, "eta": 0.25},
-        "dynamics": {"omega_i": 0.28, "K": 0.81, "K_c": 0.62, "p": 0.78, "model": "kuramoto"},
-        "time": {"tau": 0.45, "H": 0.68, "freq": 8.0}
-      },
-      "expected_ranges": {"tau": [0.1, 1.0], "K": [0.5, 1.0], "eta": [0.1, 0.5]},
-      "weights": {"tau": 0.4, "K": 0.4, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.35, "tau_max": 0.8, "K_min": 0.6},
-      "translation_map": {
-        "tau": {"industry_term": "Задержка синаптической передачи (мс)", "description": "Время от спайка до деполяризации постсинаптического нейрона", "typical_values": "0.2–2.0 мс"},
-        "K": {"industry_term": "Нормализованный вес синаптической связи", "description": "Сила синаптического воздействия (нормирован на [0,1])", "typical_values": "0.5–1.0"},
-        "eta": {"industry_term": "Уровень нейронного шума (относительный)", "description": "Отношение стандартного отклонения случайных входов к порогу возбуждения", "typical_values": "0.1–0.5"}
-      },
-      "blind_spot_template": "Стандартные конфигураторы SNN задают веса и задержки по эвристикам, не отслеживая критические пороги τ_max={tau_max} мс и η_max={eta_max}.",
-      "math_adaptation_formula": "stability_warning = (synaptic_weight < K_c) or (noise_level > eta_crit) or (synaptic_delay > tau_crit)",
-      "example_data": {"type": "kuramoto", "coupling_K": 0.81, "K_c": 0.62, "noise_eta": 0.25, "delay_tau_ms": 0.45, "neuron_count": 10000},
-      "description": "Спайковые нейронные сети на нейроморфном железе"
-    },
-    {
-      "id": "M5",
-      "logia": "Финансы",
-      "industry": "Риск-менеджмент",
-      "name": "Сеть межбанковских кредитов",
-      "math_type": "graph_invariant",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["StressTest", "DFAST", "Bloomberg SRISK"],
-      "disc_code": "5",
-      "sector_code": "5.1",
-      "four_d_matrix": {
-        "structure": {"C": 0.69, "k": 28.0, "D": 2.8},
-        "influence": {"h": 2.4, "T": 1.4, "eta": 0.42},
-        "dynamics": {"omega_i": 0.12, "K": 0.62, "K_c": 0.51, "p": 0.65, "model": "graph_invariant"},
-        "time": {"tau": 2.8, "H": 0.59, "freq": 0.4}
-      },
-      "expected_ranges": {"tau": [1.0, 5.0], "K": [0.4, 0.9], "eta": [0.2, 0.7]},
-      "weights": {"tau": 0.3, "K": 0.4, "eta": 0.3},
-      "critical_thresholds": {"eta_max": 0.5, "tau_max": 4.5, "K_min": 0.4},
-      "translation_map": {
-        "tau": {"industry_term": "Лаг кредитного цикла (мес)", "description": "Среднее время от дисбаланса ликвидности до распространения на контрагентов", "typical_values": "1–12 мес"},
-        "K": {"industry_term": "Коэффициент межбанковской связности", "description": "Средняя доля фондирования одного банка от других участников", "typical_values": "0.3–0.9"},
-        "eta": {"industry_term": "Волатильность ликвидности CV", "description": "Коэффициент вариации ежедневного объёма межбанковских операций", "typical_values": "0.1–0.7"}
-      },
-      "blind_spot_template": "Стандартные стресс-тесты DFAST не учитывают нелинейное взаимодействие волатильности η>{eta_max} и лага τ>{tau_max} мес: при одновременном превышении вероятность каскадного дефолта резко возрастает нелинейно.",
-      "math_adaptation_formula": "cascade_risk = max(0, (eta / eta_crit - 1) * (tau / tau_crit - 1)) if (eta > eta_crit and tau > tau_crit) else 0",
-      "example_data": {"type": "graph_invariant", "daily_sales_mean": 1000, "daily_sales_std": 420, "current_lead_time": 3.5, "old_safety_stock_coef": 0.15},
-      "description": "Граф межбанковских обязательств с динамикой ликвидности"
-    },
-    {
-      "id": "M6",
-      "logia": "Финансы",
-      "industry": "Макроциклы",
-      "name": "Модель Самуэльсона-Хикса",
-      "math_type": "delay",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["EViews", "MATLAB/Dynare", "R/vars"],
-      "disc_code": "5",
-      "sector_code": "5.1",
-      "four_d_matrix": {
-        "structure": {"C": 0.55, "k": 8.0, "D": 1.9},
-        "influence": {"h": 1.9, "T": 1.6, "eta": 0.31},
-        "dynamics": {"omega_i": 0.18, "K": 0.48, "K_c": 0.38, "p": 0.71, "model": "delay"},
-        "time": {"tau": 4.1, "H": 0.74, "freq": 0.3}
-      },
-      "expected_ranges": {"tau": [2.0, 6.0], "K": [0.3, 0.7], "eta": [0.1, 0.5]},
-      "weights": {"tau": 0.5, "K": 0.3, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.45, "tau_max": 5.5, "K_min": 0.3},
-      "translation_map": {
-        "tau": {"industry_term": "Лаг экономического мультипликатора (кварталов)", "description": "Время между изменением инвестиций и полным эффектом на ВВП через мультипликатор Кейнса", "typical_values": "2–8 кварталов"},
-        "K": {"industry_term": "Мультипликатор Кейнса (нормированный)", "description": "Сила усиления первоначального импульса в экономическом цикле [0,1]", "typical_values": "0.3–0.7"},
-        "eta": {"industry_term": "Волатильность ВВП-роста CV", "description": "Коэффициент вариации квартальных темпов роста ВВП", "typical_values": "0.1–0.5"}
-      },
-      "blind_spot_template": "Стандартные VAR-модели линеаризуют мультипликативный эффект, не учитывая критический лаг τ_max={tau_max} кв. и волатильность η_max={eta_max}: при превышении система входит в нелинейный экономический цикл, который VAR недооценивает.",
-      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
-      "example_data": {"type": "delay", "coupling_K": 0.48, "K_c": 0.38, "noise_eta": 0.31, "delay_tau": 4.1, "description": "Лаг мультипликатора в кварталах"},
-      "description": "Макроэкономические деловые циклы с запаздыванием мультипликатора"
-    },
-    {
-      "id": "M7",
-      "logia": "Экология",
-      "industry": "Популяционная динамика",
-      "name": "Лотки-Вольтерра с запаздыванием",
-      "math_type": "delay",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["Populus", "STELLA", "Vensim"],
-      "disc_code": "4",
-      "sector_code": "4.2",
-      "four_d_matrix": {
-        "structure": {"C": 0.48, "k": 6.0, "D": 1.7},
-        "influence": {"h": 2.7, "T": 2.0, "eta": 0.29},
-        "dynamics": {"omega_i": 0.09, "K": 0.35, "K_c": 0.28, "p": 0.62, "model": "delay"},
-        "time": {"tau": 5.5, "H": 0.63, "freq": 0.15}
-      },
-      "expected_ranges": {"tau": [3.0, 8.0], "K": [0.2, 0.6], "eta": [0.1, 0.45]},
-      "weights": {"tau": 0.5, "K": 0.3, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.38, "tau_max": 7.0, "K_min": 0.2},
-      "translation_map": {
-        "tau": {"industry_term": "Лаг воспроизводства популяции (лет)", "description": "Время от изменения численности жертвы до изменения численности хищника", "typical_values": "1–10 лет"},
-        "K": {"industry_term": "Коэффициент трофического взаимодействия", "description": "Сила влияния хищника на динамику жертвы (Lotka-Volterra β·δ, нормирован)", "typical_values": "0.2–0.6"},
-        "eta": {"industry_term": "Коэффициент вариации внешних условий (климат, ресурсы)", "description": "Относительная изменчивость несущей ёмкости среды (K) во времени", "typical_values": "0.05–0.45"}
-      },
-      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую задержку τ_max={tau_max} лет и внешнюю изменчивость η_max={eta_max}: при превышении циклы хищник-жертва теряют периодичность.",
-      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
-      "example_data": {"type": "delay", "coupling_K": 0.35, "K_c": 0.28, "noise_eta": 0.29, "delay_tau": 5.5, "description": "Лаг воспроизводства в годах"},
-      "description": "Популяционная динамика хищник-жертва с запаздыванием"
-    },
-    {
-      "id": "M8",
-      "logia": "Экология",
-      "industry": "Метаболизм экосистемы",
-      "name": "Поток энергии (граф)",
-      "math_type": "graph_invariant",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["Ecopath", "Ecosim", "InVEST"],
-      "disc_code": "4",
-      "sector_code": "4.2",
-      "four_d_matrix": {
-        "structure": {"C": 0.74, "k": 14.0, "D": 2.5},
-        "influence": {"h": 1.6, "T": 1.0, "eta": 0.38},
-        "dynamics": {"omega_i": 0.14, "K": 0.59, "K_c": 0.47, "p": 0.79, "model": "graph_invariant"},
-        "time": {"tau": 3.8, "H": 0.67, "freq": 0.6}
-      },
-      "expected_ranges": {"tau": [2.0, 6.0], "K": [0.3, 0.8], "eta": [0.15, 0.55]},
-      "weights": {"tau": 0.3, "K": 0.4, "eta": 0.3},
-      "critical_thresholds": {"eta_max": 0.5, "tau_max": 5.5, "K_min": 0.3},
-      "translation_map": {
-        "tau": {"industry_term": "Лаг восстановления биомассы (лет)", "description": "Время до восстановления на 50% от исходной биомассы трофического уровня", "typical_values": "1–15 лет"},
-        "K": {"industry_term": "Эффективность трофической передачи (нормир.)", "description": "Доля энергии, переходящая с одного трофического уровня на следующий", "typical_values": "0.3–0.8"},
-        "eta": {"industry_term": "Коэффициент вариации внешних возмущений (антропогенная нагрузка)", "description": "Относительная изменчивость годового изъятия биомассы (промысел, рубка)", "typical_values": "0.1–0.6"}
-      },
-      "blind_spot_template": "Стандартные модели Ecopath оценивают среднее равновесие, не отслеживая критическую нагрузку η_max={eta_max} и лаг восстановления τ_max={tau_max} лет: при одновременном превышении экосистема переключается в альтернативное состояние.",
-      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); recovery_pressure = multiplier * baseline_extraction",
-      "example_data": {"type": "graph_invariant", "daily_sales_mean": 500, "daily_sales_std": 190, "current_lead_time": 4.0, "old_safety_stock_coef": 0.18},
-      "description": "Граф потоков энергии в трофической сети экосистемы"
-    },
-    {
-      "id": "M9",
-      "logia": "Социология",
-      "industry": "Социальные сети",
-      "name": "Распространение мемов (информационные каскады)",
-      "math_type": "kuramoto",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["Gephi", "NetworkX", "Cytoscape"],
-      "disc_code": "5",
-      "sector_code": "5.2",
-      "four_d_matrix": {
-        "structure": {"C": 0.67, "k": 25.0, "D": 2.9},
-        "influence": {"h": 1.3, "T": 1.5, "eta": 0.26},
-        "dynamics": {"omega_i": 0.31, "K": 0.79, "K_c": 0.61, "p": 0.84, "model": "kuramoto"},
-        "time": {"tau": 1.2, "H": 0.52, "freq": 2.1}
-      },
-      "expected_ranges": {"tau": [0.5, 3.0], "K": [0.5, 1.0], "eta": [0.1, 0.5]},
-      "weights": {"tau": 0.3, "K": 0.5, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.35, "tau_max": 1.8, "K_min": 0.6},
-      "translation_map": {
-        "tau": {"industry_term": "Среднее время закрепления мема (дней)", "description": "Время от первой публикации до устойчивого присутствия в топ-трендах", "typical_values": "0.5–5 дней"},
-        "K": {"industry_term": "Коэффициент виральности контента", "description": "Среднее число репостов на один просмотр × вероятность дальнейшего распространения", "typical_values": "0.5–1.0"},
-        "eta": {"industry_term": "Уровень информационного шума (нормир.)", "description": "Доля нерелевантного контента в ленте целевой аудитории", "typical_values": "0.1–0.5"}
-      },
-      "blind_spot_template": "Стандартные метрики Gephi анализируют граф статично, не отслеживая критический уровень шума η_max={eta_max} и максимальное время закрепления τ_max={tau_max} дн: при превышении мем затухает даже при высоком K.",
-      "math_adaptation_formula": "virality_forecast = 1 if (K > K_c and eta < eta_crit and tau < tau_crit) else 0; time_to_peak = tau * ln(1 / (1 - K))",
-      "example_data": {"type": "kuramoto", "coupling_K": 0.79, "K_c": 0.61, "noise_eta": 0.26, "delay_tau_days": 1.2, "audience_size": 100000},
-      "description": "Динамика распространения информации и формирования мнений в соцсетях"
-    },
-    {
-      "id": "M10",
-      "logia": "Социология",
-      "industry": "Коллективное поведение",
-      "name": "Гранулярный синхронный хаос",
-      "math_type": "graph_invariant",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["NetLogo", "Mesa (Python)", "AnyLogic"],
-      "disc_code": "5",
-      "sector_code": "5.2",
-      "four_d_matrix": {
-        "structure": {"C": 0.73, "k": 19.0, "D": 2.7},
-        "influence": {"h": 2.0, "T": 1.2, "eta": 0.33},
-        "dynamics": {"omega_i": 0.24, "K": 0.66, "K_c": 0.52, "p": 0.73, "model": "graph_invariant"},
-        "time": {"tau": 2.4, "H": 0.61, "freq": 1.0}
-      },
-      "expected_ranges": {"tau": [1.0, 4.0], "K": [0.4, 0.8], "eta": [0.1, 0.5]},
-      "weights": {"tau": 0.4, "K": 0.4, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.42, "tau_max": 3.5, "K_min": 0.4},
-      "translation_map": {
-        "tau": {"industry_term": "Задержка реакции агента на сигнал соседей (с)", "description": "Среднее время от изменения состояния соседних агентов до адаптации текущего агента", "typical_values": "0.5–10 с"},
-        "K": {"industry_term": "Коэффициент взаимной координации агентов", "description": "Сила влияния поведения соседей на решение агента (социальное давление)", "typical_values": "0.4–0.8"},
-        "eta": {"industry_term": "Уровень случайных отклонений агентов", "description": "Относительная доля агентов, действующих вопреки локальному консенсусу", "typical_values": "0.1–0.5"}
-      },
-      "blind_spot_template": "Стандартные ABM-модели NetLogo не вычисляют критический порог отклонений η_max={eta_max} и задержки координации τ_max={tau_max} с: при превышении коллективное поведение распадается на независимые кластеры.",
-      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); coordination_loss = 1 - 1/multiplier",
-      "example_data": {"type": "graph_invariant", "daily_sales_mean": 200, "daily_sales_std": 84, "current_lead_time": 2.8, "old_safety_stock_coef": 0.22},
-      "description": "Агент-ориентированная модель коллективного поведения с синхронным хаосом"
-    },
-    {
-      "id": "M11",
-      "logia": "Гидродинамика",
-      "industry": "Механика жидкости",
-      "name": "Navier-Stokes с запаздыванием",
-      "math_type": "delay",
-      "key_params": ["tau", "K", "eta"],
-      "programs": ["OpenFOAM", "ANSYS Fluent", "COMSOL"],
-      "disc_code": "1",
-      "sector_code": "1.2",
-      "four_d_matrix": {
-        "structure": {"C": 0.40, "k": 6.0, "D": 2.5},
-        "influence": {"h": 0.30, "T": 0.9, "eta": 0.20},
-        "dynamics": {"omega_i": 0.15, "K": 0.18, "K_c": 0.22, "p": 0.50, "model": "delay"},
-        "time": {"tau": 0.08, "H": 1.0, "freq": 0.1}
-      },
-      "expected_ranges": {"tau": [0.01, 0.5], "K": [0.05, 0.3], "eta": [0.02, 0.5]},
-      "weights": {"tau": 0.4, "K": 0.3, "eta": 0.3},
-      "critical_thresholds": {"eta_max": 0.38, "tau_max": 1.2, "K_min": 0.05},
-      "translation_map": {
-        "tau": {"industry_term": "Время задержки распространения возмущений (с)", "description": "Запаздывание, с которым изменение давления влияет на другую точку (L/U)", "typical_values": "0.01–0.5 с"},
-        "K": {"industry_term": "Обратное число Рейнольдса (1/Re) — нелинейность вязкости", "description": "Параметр вязкого взаимодействия; малый K = высокий Re = развитая турбулентность", "typical_values": "0.05–0.3"},
-        "eta": {"industry_term": "Интенсивность турбулентности u'/U", "description": "Отношение RMS пульсаций скорости к средней скорости потока", "typical_values": "0.02–0.5"}
-      },
-      "blind_spot_template": "Стандартные RANS-модели (k-ε, SST) не отслеживают критический уровень турбулентного шума η_max={eta_max} и задержку распространения возмущений τ_max={tau_max} с: при превышении вихревые структуры теряют когерентность.",
-      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit, (K - K_min)/K_min)",
-      "example_data": {"type": "delay", "coupling_K": 0.18, "K_c": 0.22, "noise_eta": 0.20, "delay_tau": 0.08, "description": "Задержка распространения в секундах"},
-      "description": "Уравнения Навье-Стокса с запаздывающей обратной связью для анализа когерентности вихрей"
-    },
-    {
-      "id": "M12",
-      "logia": "Геонауки",
-      "industry": "Геологический риск",
-      "name": "Лавинообразный сброс напряжений (перколяция)",
+      "id": "M01",
+      "logia": "Физика",
+      "industry": "Астрономия",
+      "name": "Фазовые переходы и критические явления",
       "math_type": "percolation",
-      "key_params": ["p", "K", "eta"],
-      "programs": ["HazardMapper", "OpenQuake", "HAZUS"],
-      "disc_code": "1",
-      "sector_code": "1.4",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "Astropy",
+        "GADGET",
+        "AREPO"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
       "four_d_matrix": {
-        "structure": {"C": 0.45, "k": 9.0, "D": 2.2},
-        "influence": {"h": 2.8, "T": 1.5, "eta": 0.35},
-        "dynamics": {"omega_i": 0.65, "K": 0.52, "K_c": 0.40, "p": 0.55, "model": "percolation"},
-        "time": {"tau": 7.0, "H": 0.70, "freq": 0.40}
+        "structure": {
+          "C": 0.638,
+          "k": 8.4,
+          "D": 2.03
+        },
+        "influence": {
+          "h": 2.121,
+          "T": 1.186,
+          "eta": 0.315
+        },
+        "dynamics": {
+          "omega_i": 0.9,
+          "K": 0.616,
+          "K_c": 0.462,
+          "p": 0.509,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 6.694,
+          "H": 0.761,
+          "freq": 0.943
+        }
       },
-      "expected_ranges": {"p": [0.3, 0.8], "K": [0.3, 0.7], "eta": [0.1, 0.6]},
-      "weights": {"p": 0.5, "K": 0.3, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.50, "tau_max": 12.0, "K_min": 0.30, "p_crit": 0.37},
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.516,
+        "p_crit": 0.409
+      },
       "translation_map": {
-        "tau": {"industry_term": "Характерный период накопления напряжения (лет)", "description": "Время между значимыми сейсмическими событиями в геологической зоне", "typical_values": "5–100 лет"},
-        "K": {"industry_term": "Коэффициент связности разломов", "description": "Средняя интенсивность передачи напряжения между смежными геологическими блоками (нормирован)", "typical_values": "0.3–0.7"},
-        "eta": {"industry_term": "Геологическая неоднородность (CV)", "description": "Коэффициент вариации прочностных свойств горных пород в зоне разлома", "typical_values": "0.1–0.6"}
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
       },
-      "blind_spot_template": "Стандартные сейсмические модели (PSHA) оценивают вероятность события по истории, но не отслеживают критическую неоднородность η_max={eta_max} и период накопления τ_max={tau_max} лет: при превышении порога связности p_crit возникает лавинообразный каскад разрядок. Артефакт: p={p:.2f}, p_crit=0.37.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.409 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
-      "example_data": {
-        "type": "percolation",
-        "p_measured": 0.52,
-        "p_crit": 0.37,
-        "K_connectivity": 0.48,
-        "noise_eta": 0.38,
-        "monitoring_period_years": 6.8
-      },
-      "description": "Модель порогового каскадного сброса напряжений в геологических системах (землетрясения, обвалы)"
-    },
-    {
-      "id": "M13",
-      "logia": "Финансы",
-      "industry": "Системный риск",
-      "name": "Финансовая зараза (перколяция дефолтов)",
-      "math_type": "percolation",
-      "key_params": ["p", "K", "eta"],
-      "programs": ["Systemic Risk Monitor", "FIRE", "NetRisk"],
-      "disc_code": "5",
-      "sector_code": "5.1",
-      "four_d_matrix": {
-        "structure": {"C": 0.62, "k": 32.0, "D": 2.7},
-        "influence": {"h": 3.1, "T": 1.8, "eta": 0.45},
-        "dynamics": {"omega_i": 0.55, "K": 0.58, "K_c": 0.42, "p": 0.60, "model": "percolation"},
-        "time": {"tau": 3.5, "H": 0.58, "freq": 0.35}
-      },
-      "expected_ranges": {"p": [0.2, 0.8], "K": [0.3, 0.8], "eta": [0.2, 0.7]},
-      "weights": {"p": 0.5, "K": 0.3, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.55, "tau_max": 6.0, "K_min": 0.30, "p_crit": 0.35},
-      "translation_map": {
-        "tau": {"industry_term": "Лаг распространения дефолта (мес)", "description": "Время от первичного дефолта контрагента до волны вторичных дефолтов", "typical_values": "1–18 мес"},
-        "K": {"industry_term": "Коэффициент финансовой взаимозависимости", "description": "Средняя доля обязательств одного участника, приходящаяся на других участников сети", "typical_values": "0.3–0.8"},
-        "eta": {"industry_term": "Волатильность рыночной ликвидности", "description": "CV ежедневных объёмов торгов на ключевых рынках — мера системного шума", "typical_values": "0.2–0.7"}
-      },
-      "blind_spot_template": "Стандартные модели кредитного риска оценивают вероятность дефолта изолированно, не учитывая критический порог связности p_crit=0.35 и волатильность η_max={eta_max}: при p>{p_crit} система переходит в режим каскадного коллапса, где стандартный VaR занижает потери в 3–5 раз.",
-      "math_adaptation_formula": "systemic_risk = (p - p_crit) / (1 - p_crit) if p > p_crit else 0; contagion_multiplier = max(1.0, 1 + systemic_risk * (eta / eta_crit))",
       "example_data": {
         "type": "percolation",
         "p_measured": 0.52,
@@ -393,114 +105,2734 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Модель каскадного распространения дефолтов в финансовых сетях через перколяционный порог"
+      "description": "Фазовые переходы и критические явления — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов."
     },
     {
-      "id": "M14",
-      "logia": "Эпидемиология",
-      "industry": "Пороговое распространение",
-      "name": "SIR с порогом перколяции",
-      "math_type": "percolation",
-      "key_params": ["p", "K", "eta"],
-      "programs": ["EpiModel", "NetLogo SIR", "Epiverse-TRACE"],
-      "disc_code": "3",
-      "sector_code": "3.3",
+      "id": "M02",
+      "logia": "Физика",
+      "industry": "Астрономия",
+      "name": "Синхронизация осцилляторов",
+      "math_type": "kuramoto",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "REBOUND",
+        "Astropy"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
       "four_d_matrix": {
-        "structure": {"C": 0.55, "k": 15.0, "D": 2.3},
-        "influence": {"h": 2.2, "T": 1.3, "eta": 0.30},
-        "dynamics": {"omega_i": 0.42, "K": 0.50, "K_c": 0.38, "p": 0.55, "model": "percolation"},
-        "time": {"tau": 5.0, "H": 0.65, "freq": 0.50}
+        "structure": {
+          "C": 0.871,
+          "k": 10.8,
+          "D": 2.751
+        },
+        "influence": {
+          "h": 1.648,
+          "T": 1.286,
+          "eta": 0.229
+        },
+        "dynamics": {
+          "omega_i": 0.361,
+          "K": 0.766,
+          "K_c": 0.524,
+          "p": 0.664,
+          "model": "kuramoto"
+        },
+        "time": {
+          "tau": 1.375,
+          "H": 0.69,
+          "freq": 5.028
+        }
       },
-      "expected_ranges": {"p": [0.1, 0.9], "K": [0.2, 0.8], "eta": [0.05, 0.6]},
-      "weights": {"p": 0.6, "K": 0.2, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.45, "tau_max": 10.0, "K_min": 0.25, "p_crit": 0.30},
+      "expected_ranges": {
+        "tau": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.5,
+          1.0
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.38,
+        "tau_max": 2.3,
+        "K_min": 0.666
+      },
       "translation_map": {
-        "tau": {"industry_term": "Серийный интервал (дней)", "description": "Среднее время между заражением первичного и вторичного случая", "typical_values": "2–21 дней"},
-        "K": {"industry_term": "Базовое репродуктивное число R0 (нормирован)", "description": "Среднее число вторичных случаев от одного инфицированного (нормировано делением на 10)", "typical_values": "0.2–0.8"},
-        "eta": {"industry_term": "Коэффициент вариации контактов", "description": "Относительная изменчивость числа контактов в популяции (мера сверхраспространителей)", "typical_values": "0.05–0.6"}
+        "tau": {
+          "industry_term": "Задержка синхронизации",
+          "description": "Время запаздывания в передаче сигнала",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Коэффициент синхронизации",
+          "description": "Сила связи, определяющая синхронизацию",
+          "typical_values": "0.5–1.0"
+        },
+        "eta": {
+          "industry_term": "Уровень шума",
+          "description": "Интенсивность случайных возмущений",
+          "typical_values": "0.05–0.5"
+        }
       },
-      "blind_spot_template": "Стандартные детерминированные SIR-модели не учитывают сетевую структуру контактов и критический порог связности p_crit=0.30: при p>{p_crit} возникает эпидемическая перколяция, охватывающая гигантскую компоненту контактной сети. Волатильность контактов η_max={eta_max} усиливает неопределённость прогноза в 2–3 раза.",
-      "math_adaptation_formula": "epidemic_risk = max(0, (R0 - 1) * (p - p_crit)) if p > p_crit else 0; eta_penalty = 1 + (eta / eta_crit) if eta > eta_crit else 1",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
-        "type": "percolation",
-        "p_measured": 0.52,
-        "p_crit": 0.30,
-        "K_connectivity": 0.48,
-        "noise_eta": 0.38,
-        "tau_serial_interval_days": 6.8
+        "type": "kuramoto",
+        "coupling_K": 0.72,
+        "K_c": 0.58,
+        "noise_eta": 0.28,
+        "delay_tau_hours": 1.8,
+        "route_count": 120
       },
-      "description": "Пороговая модель эпидемического распространения через перколяцию контактных сетей"
+      "description": "Синхронизация осцилляторов — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов."
     },
     {
-      "id": "M15",
-      "logia": "Физика фазовых переходов",
-      "industry": "Материаловедение / Спиновые системы",
-      "name": "Модель Изинга (бинарные состояния)",
-      "math_type": "ising",
-      "key_params": ["T", "K", "eta"],
-      "programs": ["LAMMPS", "VASP", "Monte Carlo Toolkit"],
-      "disc_code": "1",
-      "sector_code": "1.2",
+      "id": "M03",
+      "logia": "Физика",
+      "industry": "Астрономия",
+      "name": "Гравитационная динамика и стабильность",
+      "math_type": "graph_invariant",
+      "key_params": [
+        "K",
+        "p",
+        "tau"
+      ],
+      "programs": [
+        "GADGET",
+        "AMUSE"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
       "four_d_matrix": {
-        "structure": {"C": 0.58, "k": 4.0, "D": 2.0},
-        "influence": {"h": 1.5, "T": 1.2, "eta": 0.15},
-        "dynamics": {"omega_i": 0.10, "K": 0.80, "K_c": 0.60, "p": 0.65, "model": "ising"},
-        "time": {"tau": 1.0, "H": 0.55, "freq": 0.5}
+        "structure": {
+          "C": 0.602,
+          "k": 23.7,
+          "D": 2.224
+        },
+        "influence": {
+          "h": 1.918,
+          "T": 0.948,
+          "eta": 0.267
+        },
+        "dynamics": {
+          "omega_i": 0.444,
+          "K": 0.578,
+          "K_c": 0.443,
+          "p": 0.79,
+          "model": "graph_invariant"
+        },
+        "time": {
+          "tau": 1.602,
+          "H": 0.663,
+          "freq": 1.997
+        }
       },
-      "expected_ranges": {"T": [0.5, 3.0], "K": [0.4, 1.2], "eta": [0.05, 0.5]},
-      "weights": {"T": 0.4, "K": 0.4, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.35, "tau_max": 5.0, "K_min": 0.4, "T_crit": 1.0},
+      "expected_ranges": {
+        "tau": [
+          1.0,
+          8.0
+        ],
+        "K": [
+          0.2,
+          0.8
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 4.5,
+        "K_min": 0.478
+      },
       "translation_map": {
-        "tau": {"industry_term": "Время релаксации к равновесию (с)", "description": "Время установления нового равновесного состояния после изменения внешних условий", "typical_values": "0.1–10 с"},
-        "K": {"industry_term": "Обменное взаимодействие (нормированное)", "description": "Сила взаимодействия между соседними спинами (J/k_BT_c, нормирована)", "typical_values": "0.4–1.2"},
-        "eta": {"industry_term": "Уровень тепловых флуктуаций (η = k_BT / J)", "description": "Отношение тепловой энергии к энергии обменного взаимодействия", "typical_values": "0.05–0.5"}
+        "tau": {
+          "industry_term": "Характерное время (Физика)",
+          "description": "Среднее время реакции или обновления",
+          "typical_values": "1–30"
+        },
+        "K": {
+          "industry_term": "Коэффициент связности",
+          "description": "Сила взаимодействия между элементами",
+          "typical_values": "0.3–0.8"
+        },
+        "eta": {
+          "industry_term": "Уровень шума/вариации",
+          "description": "Относительная изменчивость параметров",
+          "typical_values": "0.1–0.6"
+        }
       },
-      "blind_spot_template": "Стандартные расчёты в LAMMPS не отслеживают критический уровень тепловых флуктуаций η_max={eta_max} и время релаксации τ_max={tau_max} с: при T > T_crit система переходит в неупорядоченную фазу, что в материаловедении соответствует потере ферромагнитных свойств.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
+      "example_data": {
+        "type": "graph_invariant",
+        "daily_sales_mean": 100,
+        "daily_sales_std": 65,
+        "current_lead_time": 7.0,
+        "old_safety_stock_coef": 0.2
+      },
+      "description": "Гравитационная динамика и стабильность — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M04",
+      "logia": "Химия",
+      "industry": "Материаловедение",
+      "name": "Реакционно-диффузионные системы",
+      "math_type": "delay",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "COMSOL",
+        "Cantera"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.64,
+          "k": 9.0,
+          "D": 1.823
+        },
+        "influence": {
+          "h": 1.598,
+          "T": 1.425,
+          "eta": 0.379
+        },
+        "dynamics": {
+          "omega_i": 0.276,
+          "K": 0.331,
+          "K_c": 0.235,
+          "p": 0.614,
+          "model": "delay"
+        },
+        "time": {
+          "tau": 2.578,
+          "H": 0.601,
+          "freq": 0.375
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.1,
+          8.0
+        ],
+        "K": [
+          0.1,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 5.5,
+        "K_min": 0.231
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка",
+          "description": "Время запаздывания реакции",
+          "typical_values": "0.1–8.0"
+        },
+        "K": {
+          "industry_term": "Усиление",
+          "description": "Коэффициент обратной связи",
+          "typical_values": "0.1–0.7"
+        },
+        "eta": {
+          "industry_term": "Шум",
+          "description": "Уровень флуктуаций",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.231: возможно потеря устойчивости.",
+      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
+      "example_data": {
+        "type": "delay",
+        "coupling_K": 0.48,
+        "K_c": 0.38,
+        "noise_eta": 0.31,
+        "delay_tau": 4.1,
+        "description": "Лаг в единицах времени"
+      },
+      "description": "Реакционно-диффузионные системы — модель для анализа Химия в области Материаловедение. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M05",
+      "logia": "Химия",
+      "industry": "Материаловедение",
+      "name": "Кристаллизация и фазовые переходы",
+      "math_type": "ising",
+      "key_params": [
+        "T",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "LAMMPS",
+        "VASP"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.539,
+          "k": 5.4,
+          "D": 2.35
+        },
+        "influence": {
+          "h": 1.867,
+          "T": 1.062,
+          "eta": 0.243
+        },
+        "dynamics": {
+          "omega_i": 0.151,
+          "K": 0.717,
+          "K_c": 0.764,
+          "p": 0.54,
+          "model": "ising"
+        },
+        "time": {
+          "tau": 1.705,
+          "H": 0.574,
+          "freq": 1.737
+        }
+      },
+      "expected_ranges": {
+        "T": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.4,
+          1.2
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "T": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.4,
+        "tau_max": 2.0,
+        "K_min": 0.617,
+        "T_crit": 0.617
+      },
+      "translation_map": {
+        "T": {
+          "industry_term": "Температура/активность",
+          "description": "Мера стохастичности",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Взаимодействие",
+          "description": "Сила взаимодействия соседей",
+          "typical_values": "0.4–1.2"
+        },
+        "eta": {
+          "industry_term": "Внешнее поле",
+          "description": "Влияние внешних факторов",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные расчёты не отслеживают критическую температуру T_crit=0.617 и уровень шума η_max=0.4: при превышении система переходит в неупорядоченную фазу.",
       "math_adaptation_formula": "phase_order = tanh((K - eta * T) / max(T, 0.01)); stability = phase_order > 0.3",
       "example_data": {
         "type": "ising",
-        "coupling_K": 0.80,
+        "coupling_K": 0.8,
         "T_temperature": 0.9,
         "noise_eta": 0.15,
         "lattice_size": 64
       },
-      "description": "Модель бинарных фазовых переходов под внешним полем (намагничивание, голосование, мнения)"
+      "description": "Кристаллизация и фазовые переходы — модель для анализа Химия в области Материаловедение. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M06",
+      "logia": "Химия",
+      "industry": "Химия",
+      "name": "Каталитические сети",
+      "math_type": "graph_invariant",
+      "key_params": [
+        "K",
+        "p",
+        "eta"
+      ],
+      "programs": [
+        "COPASI",
+        "Cantera"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.577,
+          "k": 5.0,
+          "D": 2.686
+        },
+        "influence": {
+          "h": 1.486,
+          "T": 1.33,
+          "eta": 0.203
+        },
+        "dynamics": {
+          "omega_i": 0.575,
+          "K": 0.465,
+          "K_c": 0.568,
+          "p": 0.766,
+          "model": "graph_invariant"
+        },
+        "time": {
+          "tau": 2.177,
+          "H": 0.535,
+          "freq": 0.736
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          1.0,
+          8.0
+        ],
+        "K": [
+          0.2,
+          0.8
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 4.5,
+        "K_min": 0.365
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Характерное время (Химия)",
+          "description": "Среднее время реакции или обновления",
+          "typical_values": "1–30"
+        },
+        "K": {
+          "industry_term": "Коэффициент связности",
+          "description": "Сила взаимодействия между элементами",
+          "typical_values": "0.3–0.8"
+        },
+        "eta": {
+          "industry_term": "Уровень шума/вариации",
+          "description": "Относительная изменчивость параметров",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
+      "example_data": {
+        "type": "graph_invariant",
+        "daily_sales_mean": 100,
+        "daily_sales_std": 65,
+        "current_lead_time": 7.0,
+        "old_safety_stock_coef": 0.2
+      },
+      "description": "Каталитические сети — модель для анализа Химия в области Химия. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M07",
+      "logia": "Биология",
+      "industry": "Медицина",
+      "name": "Популяционная динамика",
+      "math_type": "lotka_volterra",
+      "key_params": [
+        "K",
+        "tau",
+        "eta"
+      ],
+      "programs": [
+        "Copasi",
+        "Vensim"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.583,
+          "k": 5.4,
+          "D": 2.368
+        },
+        "influence": {
+          "h": 1.82,
+          "T": 1.228,
+          "eta": 0.261
+        },
+        "dynamics": {
+          "omega_i": 0.398,
+          "K": 0.382,
+          "K_c": 0.407,
+          "p": 0.661,
+          "model": "lotka_volterra"
+        },
+        "time": {
+          "tau": 4.604,
+          "H": 0.504,
+          "freq": 0.834
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          2.0,
+          10.0
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.282
+      },
+      "translation_map": {
+        "K": {
+          "industry_term": "Коэффициент конкуренции",
+          "description": "Сила подавления одной популяции другой",
+          "typical_values": "0.2–0.7"
+        },
+        "tau": {
+          "industry_term": "Период обновления",
+          "description": "Время между циклами воспроизводства",
+          "typical_values": "2–100"
+        },
+        "eta": {
+          "industry_term": "Изменчивость ресурсов",
+          "description": "Коэффициент вариации доступности ресурсов",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max=0.5 и период обновления τ_max=7.0: при превышении стационарное сосуществование разрушается.",
+      "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta/eta_crit -1)*(K/K_c -1)) if K > K_c else 0",
+      "example_data": {
+        "type": "lotka_volterra",
+        "predator_growth": 0.4,
+        "prey_death": 0.3,
+        "interaction": 0.5,
+        "noise_eta": 0.2
+      },
+      "description": "Популяционная динамика — модель для анализа Биология в области Медицина. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M08",
+      "logia": "Биология",
+      "industry": "Эпидемиология",
+      "name": "Эпидемическое распространение",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "EpiModel",
+        "NetLogo"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.556,
+          "k": 13.6,
+          "D": 2.253
+        },
+        "influence": {
+          "h": 2.706,
+          "T": 1.545,
+          "eta": 0.318
+        },
+        "dynamics": {
+          "omega_i": 0.662,
+          "K": 0.563,
+          "K_c": 0.485,
+          "p": 0.672,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 8.061,
+          "H": 0.552,
+          "freq": 0.697
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.463,
+        "p_crit": 0.572
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.572 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Эпидемическое распространение — модель для анализа Биология в области Эпидемиология. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M09",
+      "logia": "Биология",
+      "industry": "Нейронауки",
+      "name": "Нейронная синхронизация",
+      "math_type": "kuramoto",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "Brian2",
+        "NEURON"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.604,
+          "k": 22.3,
+          "D": 2.642
+        },
+        "influence": {
+          "h": 1.912,
+          "T": 0.951,
+          "eta": 0.22
+        },
+        "dynamics": {
+          "omega_i": 0.614,
+          "K": 0.874,
+          "K_c": 0.508,
+          "p": 0.655,
+          "model": "kuramoto"
+        },
+        "time": {
+          "tau": 1.479,
+          "H": 0.635,
+          "freq": 2.93
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.5,
+          1.0
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.38,
+        "tau_max": 2.3,
+        "K_min": 0.774
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка синхронизации",
+          "description": "Время запаздывания в передаче сигнала",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Коэффициент синхронизации",
+          "description": "Сила связи, определяющая синхронизацию",
+          "typical_values": "0.5–1.0"
+        },
+        "eta": {
+          "industry_term": "Уровень шума",
+          "description": "Интенсивность случайных возмущений",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
+      "example_data": {
+        "type": "kuramoto",
+        "coupling_K": 0.72,
+        "K_c": 0.58,
+        "noise_eta": 0.28,
+        "delay_tau_hours": 1.8,
+        "route_count": 120
+      },
+      "description": "Нейронная синхронизация — модель для анализа Биология в области Нейронауки. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M10",
+      "logia": "Экология",
+      "industry": "Экосистемы",
+      "name": "Потоки энергии и вещества",
+      "math_type": "graph_invariant",
+      "key_params": [
+        "K",
+        "p",
+        "tau"
+      ],
+      "programs": [
+        "Ecopath",
+        "Ecosim"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.513,
+          "k": 23.8,
+          "D": 2.849
+        },
+        "influence": {
+          "h": 2.302,
+          "T": 1.791,
+          "eta": 0.259
+        },
+        "dynamics": {
+          "omega_i": 0.651,
+          "K": 0.531,
+          "K_c": 0.502,
+          "p": 0.717,
+          "model": "graph_invariant"
+        },
+        "time": {
+          "tau": 4.82,
+          "H": 0.53,
+          "freq": 0.65
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          1.0,
+          8.0
+        ],
+        "K": [
+          0.2,
+          0.8
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 4.5,
+        "K_min": 0.431
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Характерное время (Экология)",
+          "description": "Среднее время реакции или обновления",
+          "typical_values": "1–30"
+        },
+        "K": {
+          "industry_term": "Коэффициент связности",
+          "description": "Сила взаимодействия между элементами",
+          "typical_values": "0.3–0.8"
+        },
+        "eta": {
+          "industry_term": "Уровень шума/вариации",
+          "description": "Относительная изменчивость параметров",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
+      "example_data": {
+        "type": "graph_invariant",
+        "daily_sales_mean": 100,
+        "daily_sales_std": 65,
+        "current_lead_time": 7.0,
+        "old_safety_stock_coef": 0.2
+      },
+      "description": "Потоки энергии и вещества — модель для анализа Экология в области Экосистемы. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M11",
+      "logia": "Экология",
+      "industry": "Климат",
+      "name": "Каскады нарушений",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "CLIMADA",
+        "Vensim"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.527,
+          "k": 7.8,
+          "D": 2.735
+        },
+        "influence": {
+          "h": 2.619,
+          "T": 1.515,
+          "eta": 0.358
+        },
+        "dynamics": {
+          "omega_i": 0.464,
+          "K": 0.542,
+          "K_c": 0.379,
+          "p": 0.535,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 7.264,
+          "H": 0.604,
+          "freq": 1.681
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.442,
+        "p_crit": 0.435
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.435 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Каскады нарушений — модель для анализа Экология в области Климат. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M12",
+      "logia": "Геонауки",
+      "industry": "Геология",
+      "name": "Тектонические и геологические каскады",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "OpenQuake",
+        "HazardMapper"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.658,
+          "k": 7.6,
+          "D": 2.266
+        },
+        "influence": {
+          "h": 2.843,
+          "T": 1.601,
+          "eta": 0.241
+        },
+        "dynamics": {
+          "omega_i": 0.872,
+          "K": 0.648,
+          "K_c": 0.432,
+          "p": 0.697,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 5.448,
+          "H": 0.634,
+          "freq": 0.561
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.548,
+        "p_crit": 0.597
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.597 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Тектонические и геологические каскады — модель для анализа Геонауки в области Геология. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M13",
+      "logia": "Океанография",
+      "industry": "Климат",
+      "name": "Глобальная циркуляция",
+      "math_type": "kuramoto",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "MITgcm",
+        "ROMS"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.687,
+          "k": 15.4,
+          "D": 2.591
+        },
+        "influence": {
+          "h": 1.313,
+          "T": 1.48,
+          "eta": 0.117
+        },
+        "dynamics": {
+          "omega_i": 0.622,
+          "K": 0.695,
+          "K_c": 0.657,
+          "p": 0.815,
+          "model": "kuramoto"
+        },
+        "time": {
+          "tau": 0.636,
+          "H": 0.566,
+          "freq": 5.523
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.5,
+          1.0
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.38,
+        "tau_max": 2.3,
+        "K_min": 0.595
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка синхронизации",
+          "description": "Время запаздывания в передаче сигнала",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Коэффициент синхронизации",
+          "description": "Сила связи, определяющая синхронизацию",
+          "typical_values": "0.5–1.0"
+        },
+        "eta": {
+          "industry_term": "Уровень шума",
+          "description": "Интенсивность случайных возмущений",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
+      "example_data": {
+        "type": "kuramoto",
+        "coupling_K": 0.72,
+        "K_c": 0.58,
+        "noise_eta": 0.28,
+        "delay_tau_hours": 1.8,
+        "route_count": 120
+      },
+      "description": "Глобальная циркуляция — модель для анализа Океанография в области Климат. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M14",
+      "logia": "Экономика",
+      "industry": "Финансы",
+      "name": "Системные финансовые риски",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "Systemic Risk Monitor",
+        "FIRE"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.541,
+          "k": 7.7,
+          "D": 2.367
+        },
+        "influence": {
+          "h": 1.749,
+          "T": 1.907,
+          "eta": 0.269
+        },
+        "dynamics": {
+          "omega_i": 0.95,
+          "K": 0.607,
+          "K_c": 0.374,
+          "p": 0.7,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 9.452,
+          "H": 0.764,
+          "freq": 0.455
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.507,
+        "p_crit": 0.6
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.6 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Системные финансовые риски — модель для анализа Экономика в области Финансы. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M15",
+      "logia": "Экономика",
+      "industry": "Макроэкономика",
+      "name": "Экономические циклы",
+      "math_type": "delay",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "Dynare",
+        "EViews"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.492,
+          "k": 10.0,
+          "D": 1.961
+        },
+        "influence": {
+          "h": 1.877,
+          "T": 1.897,
+          "eta": 0.376
+        },
+        "dynamics": {
+          "omega_i": 0.561,
+          "K": 0.423,
+          "K_c": 0.251,
+          "p": 0.565,
+          "model": "delay"
+        },
+        "time": {
+          "tau": 4.61,
+          "H": 0.594,
+          "freq": 0.382
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.1,
+          8.0
+        ],
+        "K": [
+          0.1,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 5.5,
+        "K_min": 0.323
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка",
+          "description": "Время запаздывания реакции",
+          "typical_values": "0.1–8.0"
+        },
+        "K": {
+          "industry_term": "Усиление",
+          "description": "Коэффициент обратной связи",
+          "typical_values": "0.1–0.7"
+        },
+        "eta": {
+          "industry_term": "Шум",
+          "description": "Уровень флуктуаций",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.323: возможно потеря устойчивости.",
+      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
+      "example_data": {
+        "type": "delay",
+        "coupling_K": 0.48,
+        "K_c": 0.38,
+        "noise_eta": 0.31,
+        "delay_tau": 4.1,
+        "description": "Лаг в единицах времени"
+      },
+      "description": "Экономические циклы — модель для анализа Экономика в области Макроэкономика. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M16",
-      "logia": "Биология",
-      "industry": "Иммунная система / Конкуренция видов",
-      "name": "Конкуренция ресурсов (Лотки-Вольтерра)",
-      "math_type": "lotka_volterra",
-      "key_params": ["K", "tau", "eta"],
-      "programs": ["BioCellion", "CompuCell3D", "Repast Simphony"],
-      "disc_code": "1",
-      "sector_code": "1.5",
+      "logia": "Логистика",
+      "industry": "Цепочки поставок",
+      "name": "Управление запасами",
+      "math_type": "graph_invariant",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "SAP EWM",
+        "1C:WMS"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
       "four_d_matrix": {
-        "structure": {"C": 0.52, "k": 8.0, "D": 1.8},
-        "influence": {"h": 2.5, "T": 1.7, "eta": 0.28},
-        "dynamics": {"omega_i": 0.12, "K": 0.42, "K_c": 0.32, "p": 0.68, "model": "lotka_volterra"},
-        "time": {"tau": 4.5, "H": 0.66, "freq": 0.20}
+        "structure": {
+          "C": 0.549,
+          "k": 12.2,
+          "D": 2.744
+        },
+        "influence": {
+          "h": 1.695,
+          "T": 0.995,
+          "eta": 0.379
+        },
+        "dynamics": {
+          "omega_i": 0.491,
+          "K": 0.481,
+          "K_c": 0.561,
+          "p": 0.64,
+          "model": "graph_invariant"
+        },
+        "time": {
+          "tau": 1.933,
+          "H": 0.609,
+          "freq": 1.456
+        }
       },
-      "expected_ranges": {"tau": [2.0, 10.0], "K": [0.2, 0.7], "eta": [0.05, 0.5]},
-      "weights": {"tau": 0.4, "K": 0.4, "eta": 0.2},
-      "critical_thresholds": {"eta_max": 0.40, "tau_max": 8.0, "K_min": 0.20},
+      "expected_ranges": {
+        "tau": [
+          1.0,
+          8.0
+        ],
+        "K": [
+          0.2,
+          0.8
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 4.5,
+        "K_min": 0.381
+      },
       "translation_map": {
-        "tau": {"industry_term": "Период клеточного цикла / цикла обновления (ч)", "description": "Время между делениями клеток-конкурентов или обновлением популяции", "typical_values": "2–100 ч"},
-        "K": {"industry_term": "Коэффициент конкурентного взаимодействия (нормирован)", "description": "Сила супрессирующего влияния одной популяции на рост другой (Lotka-Volterra α, нормирован)", "typical_values": "0.2–0.7"},
-        "eta": {"industry_term": "Изменчивость доступности ресурсов", "description": "Коэффициент вариации ключевого ресурса (питательные вещества, пространство) во времени", "typical_values": "0.05–0.5"}
+        "tau": {
+          "industry_term": "Характерное время (Логистика)",
+          "description": "Среднее время реакции или обновления",
+          "typical_values": "1–30"
+        },
+        "K": {
+          "industry_term": "Коэффициент связности",
+          "description": "Сила взаимодействия между элементами",
+          "typical_values": "0.3–0.8"
+        },
+        "eta": {
+          "industry_term": "Уровень шума/вариации",
+          "description": "Относительная изменчивость параметров",
+          "typical_values": "0.1–0.6"
+        }
       },
-      "blind_spot_template": "Стандартные ODE-модели Лотки-Вольтерра предполагают однородную среду, не учитывая критическую изменчивость ресурсов η_max={eta_max} и период обновления τ_max={tau_max} ч: при превышении стационарное сосуществование видов разрушается, что в медицине соответствует нарушению иммунного баланса.",
-      "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta / eta_crit - 1) * (K / K_c - 1)) if K > K_c else 0",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
+      "example_data": {
+        "type": "graph_invariant",
+        "daily_sales_mean": 100,
+        "daily_sales_std": 65,
+        "current_lead_time": 7.0,
+        "old_safety_stock_coef": 0.2
+      },
+      "description": "Управление запасами — модель для анализа Логистика в области Цепочки поставок. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M17",
+      "logia": "Политология",
+      "industry": "Governance",
+      "name": "Каскадный коллапс режимов",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "NetLogo",
+        "Mesa",
+        "Gephi"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.541,
+          "k": 6.6,
+          "D": 2.573
+        },
+        "influence": {
+          "h": 1.711,
+          "T": 1.728,
+          "eta": 0.449
+        },
+        "dynamics": {
+          "omega_i": 0.985,
+          "K": 0.569,
+          "K_c": 0.38,
+          "p": 0.512,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 9.467,
+          "H": 0.664,
+          "freq": 1.337
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.469,
+        "p_crit": 0.412
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.412 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Каскадный коллапс режимов — модель для анализа Политология в области Governance. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M18",
+      "logia": "Социология",
+      "industry": "Коллективное поведение",
+      "name": "Коллективная резонансность",
+      "math_type": "kuramoto",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "NetLogo",
+        "Mesa"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.782,
+          "k": 29.6,
+          "D": 2.72
+        },
+        "influence": {
+          "h": 1.734,
+          "T": 1.37,
+          "eta": 0.209
+        },
+        "dynamics": {
+          "omega_i": 0.857,
+          "K": 0.872,
+          "K_c": 0.625,
+          "p": 0.88,
+          "model": "kuramoto"
+        },
+        "time": {
+          "tau": 1.927,
+          "H": 0.619,
+          "freq": 4.051
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.5,
+          1.0
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.38,
+        "tau_max": 2.3,
+        "K_min": 0.772
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка синхронизации",
+          "description": "Время запаздывания в передаче сигнала",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Коэффициент синхронизации",
+          "description": "Сила связи, определяющая синхронизацию",
+          "typical_values": "0.5–1.0"
+        },
+        "eta": {
+          "industry_term": "Уровень шума",
+          "description": "Интенсивность случайных возмущений",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
+      "example_data": {
+        "type": "kuramoto",
+        "coupling_K": 0.72,
+        "K_c": 0.58,
+        "noise_eta": 0.28,
+        "delay_tau_hours": 1.8,
+        "route_count": 120
+      },
+      "description": "Коллективная резонансность — модель для анализа Социология в области Коллективное поведение. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M19",
+      "logia": "Социология",
+      "industry": "Информационные сети",
+      "name": "Распространение идей",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "Gephi",
+        "NetworkX"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.57,
+          "k": 17.8,
+          "D": 2.382
+        },
+        "influence": {
+          "h": 2.88,
+          "T": 1.766,
+          "eta": 0.491
+        },
+        "dynamics": {
+          "omega_i": 0.764,
+          "K": 0.564,
+          "K_c": 0.374,
+          "p": 0.635,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 7.377,
+          "H": 0.503,
+          "freq": 0.463
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.464,
+        "p_crit": 0.535
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.535 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Распространение идей — модель для анализа Социология в области Информационные сети. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M20",
+      "logia": "Инженерия",
+      "industry": "Надёжность систем",
+      "name": "Сетевые отказы и каскады",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "AnyLogic",
+        "MATLAB"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.46,
+          "k": 16.3,
+          "D": 2.356
+        },
+        "influence": {
+          "h": 1.503,
+          "T": 1.304,
+          "eta": 0.43
+        },
+        "dynamics": {
+          "omega_i": 0.56,
+          "K": 0.462,
+          "K_c": 0.43,
+          "p": 0.609,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 8.718,
+          "H": 0.505,
+          "freq": 0.998
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.362,
+        "p_crit": 0.509
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.509 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Сетевые отказы и каскады — модель для анализа Инженерия в области Надёжность систем. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M21",
+      "logia": "Технологии",
+      "industry": "ИИ и робототехника",
+      "name": "Самоорганизация в AI",
+      "math_type": "kuramoto",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "PyTorch",
+        "TensorFlow"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.64,
+          "k": 26.7,
+          "D": 2.812
+        },
+        "influence": {
+          "h": 1.291,
+          "T": 1.153,
+          "eta": 0.263
+        },
+        "dynamics": {
+          "omega_i": 0.678,
+          "K": 0.866,
+          "K_c": 0.567,
+          "p": 0.667,
+          "model": "kuramoto"
+        },
+        "time": {
+          "tau": 0.688,
+          "H": 0.617,
+          "freq": 3.237
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.5,
+          1.0
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.38,
+        "tau_max": 2.3,
+        "K_min": 0.766
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка синхронизации",
+          "description": "Время запаздывания в передаче сигнала",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Коэффициент синхронизации",
+          "description": "Сила связи, определяющая синхронизацию",
+          "typical_values": "0.5–1.0"
+        },
+        "eta": {
+          "industry_term": "Уровень шума",
+          "description": "Интенсивность случайных возмущений",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
+      "example_data": {
+        "type": "kuramoto",
+        "coupling_K": 0.72,
+        "K_c": 0.58,
+        "noise_eta": 0.28,
+        "delay_tau_hours": 1.8,
+        "route_count": 120
+      },
+      "description": "Самоорганизация в AI — модель для анализа Технологии в области ИИ и робототехника. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M22",
+      "logia": "Материаловедение",
+      "industry": "Физика материалов",
+      "name": "Фазовые переходы в материалах",
+      "math_type": "ising",
+      "key_params": [
+        "T",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "LAMMPS",
+        "VASP"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.595,
+          "k": 9.7,
+          "D": 2.481
+        },
+        "influence": {
+          "h": 0.54,
+          "T": 0.992,
+          "eta": 0.205
+        },
+        "dynamics": {
+          "omega_i": 0.192,
+          "K": 0.813,
+          "K_c": 0.526,
+          "p": 0.711,
+          "model": "ising"
+        },
+        "time": {
+          "tau": 0.977,
+          "H": 0.534,
+          "freq": 1.911
+        }
+      },
+      "expected_ranges": {
+        "T": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.4,
+          1.2
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "T": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.4,
+        "tau_max": 2.0,
+        "K_min": 0.713,
+        "T_crit": 0.713
+      },
+      "translation_map": {
+        "T": {
+          "industry_term": "Температура/активность",
+          "description": "Мера стохастичности",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Взаимодействие",
+          "description": "Сила взаимодействия соседей",
+          "typical_values": "0.4–1.2"
+        },
+        "eta": {
+          "industry_term": "Внешнее поле",
+          "description": "Влияние внешних факторов",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные расчёты не отслеживают критическую температуру T_crit=0.713 и уровень шума η_max=0.4: при превышении система переходит в неупорядоченную фазу.",
+      "math_adaptation_formula": "phase_order = tanh((K - eta * T) / max(T, 0.01)); stability = phase_order > 0.3",
+      "example_data": {
+        "type": "ising",
+        "coupling_K": 0.8,
+        "T_temperature": 0.9,
+        "noise_eta": 0.15,
+        "lattice_size": 64
+      },
+      "description": "Фазовые переходы в материалах — модель для анализа Материаловедение в области Физика материалов. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M23",
+      "logia": "Физика",
+      "industry": "Гидродинамика",
+      "name": "Турбулентность и потоки",
+      "math_type": "delay",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "OpenFOAM",
+        "ANSYS"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.652,
+          "k": 12.5,
+          "D": 1.994
+        },
+        "influence": {
+          "h": 1.842,
+          "T": 1.547,
+          "eta": 0.377
+        },
+        "dynamics": {
+          "omega_i": 0.213,
+          "K": 0.402,
+          "K_c": 0.42,
+          "p": 0.515,
+          "model": "delay"
+        },
+        "time": {
+          "tau": 2.09,
+          "H": 0.554,
+          "freq": 0.609
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.1,
+          8.0
+        ],
+        "K": [
+          0.1,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 5.5,
+        "K_min": 0.302
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка",
+          "description": "Время запаздывания реакции",
+          "typical_values": "0.1–8.0"
+        },
+        "K": {
+          "industry_term": "Усиление",
+          "description": "Коэффициент обратной связи",
+          "typical_values": "0.1–0.7"
+        },
+        "eta": {
+          "industry_term": "Шум",
+          "description": "Уровень флуктуаций",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.302: возможно потеря устойчивости.",
+      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
       "example_data": {
         "type": "delay",
-        "coupling_K": 0.42,
-        "K_c": 0.32,
-        "noise_eta": 0.28,
-        "delay_tau": 4.5,
-        "description": "Период клеточного цикла в часах"
+        "coupling_K": 0.48,
+        "K_c": 0.38,
+        "noise_eta": 0.31,
+        "delay_tau": 4.1,
+        "description": "Лаг в единицах времени"
       },
-      "description": "Конкурентная динамика популяций за ресурс (иммунные клетки, виды экосистемы, рыночные доли)"
+      "description": "Турбулентность и потоки — модель для анализа Физика в области Гидродинамика. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M24",
+      "logia": "Биология",
+      "industry": "Иммунология",
+      "name": "Иммунный баланс",
+      "math_type": "lotka_volterra",
+      "key_params": [
+        "K",
+        "tau",
+        "eta"
+      ],
+      "programs": [
+        "COPASI",
+        "BioCellion"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.538,
+          "k": 11.0,
+          "D": 2.474
+        },
+        "influence": {
+          "h": 1.972,
+          "T": 1.015,
+          "eta": 0.334
+        },
+        "dynamics": {
+          "omega_i": 0.253,
+          "K": 0.503,
+          "K_c": 0.27,
+          "p": 0.604,
+          "model": "lotka_volterra"
+        },
+        "time": {
+          "tau": 5.135,
+          "H": 0.578,
+          "freq": 0.437
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          2.0,
+          10.0
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.403
+      },
+      "translation_map": {
+        "K": {
+          "industry_term": "Коэффициент конкуренции",
+          "description": "Сила подавления одной популяции другой",
+          "typical_values": "0.2–0.7"
+        },
+        "tau": {
+          "industry_term": "Период обновления",
+          "description": "Время между циклами воспроизводства",
+          "typical_values": "2–100"
+        },
+        "eta": {
+          "industry_term": "Изменчивость ресурсов",
+          "description": "Коэффициент вариации доступности ресурсов",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max=0.5 и период обновления τ_max=7.0: при превышении стационарное сосуществование разрушается.",
+      "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta/eta_crit -1)*(K/K_c -1)) if K > K_c else 0",
+      "example_data": {
+        "type": "lotka_volterra",
+        "predator_growth": 0.4,
+        "prey_death": 0.3,
+        "interaction": 0.5,
+        "noise_eta": 0.2
+      },
+      "description": "Иммунный баланс — модель для анализа Биология в области Иммунология. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M25",
+      "logia": "Экология",
+      "industry": "Климатология",
+      "name": "Обратные связи в климате",
+      "math_type": "delay",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "CLIMADA",
+        "Vensim"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.47,
+          "k": 5.8,
+          "D": 2.129
+        },
+        "influence": {
+          "h": 2.042,
+          "T": 1.581,
+          "eta": 0.22
+        },
+        "dynamics": {
+          "omega_i": 0.38,
+          "K": 0.489,
+          "K_c": 0.362,
+          "p": 0.509,
+          "model": "delay"
+        },
+        "time": {
+          "tau": 5.525,
+          "H": 0.781,
+          "freq": 1.151
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.1,
+          8.0
+        ],
+        "K": [
+          0.1,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 5.5,
+        "K_min": 0.389
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка",
+          "description": "Время запаздывания реакции",
+          "typical_values": "0.1–8.0"
+        },
+        "K": {
+          "industry_term": "Усиление",
+          "description": "Коэффициент обратной связи",
+          "typical_values": "0.1–0.7"
+        },
+        "eta": {
+          "industry_term": "Шум",
+          "description": "Уровень флуктуаций",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.389: возможно потеря устойчивости.",
+      "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
+      "example_data": {
+        "type": "delay",
+        "coupling_K": 0.48,
+        "K_c": 0.38,
+        "noise_eta": 0.31,
+        "delay_tau": 4.1,
+        "description": "Лаг в единицах времени"
+      },
+      "description": "Обратные связи в климате — модель для анализа Экология в области Климатология. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M26",
+      "logia": "Политология",
+      "industry": "Социальные системы",
+      "name": "Институциональная устойчивость",
+      "math_type": "graph_invariant",
+      "key_params": [
+        "K",
+        "p",
+        "tau"
+      ],
+      "programs": [
+        "NetLogo",
+        "Gephi"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.727,
+          "k": 16.3,
+          "D": 2.676
+        },
+        "influence": {
+          "h": 1.932,
+          "T": 1.369,
+          "eta": 0.408
+        },
+        "dynamics": {
+          "omega_i": 0.35,
+          "K": 0.507,
+          "K_c": 0.501,
+          "p": 0.672,
+          "model": "graph_invariant"
+        },
+        "time": {
+          "tau": 2.896,
+          "H": 0.52,
+          "freq": 2.78
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          1.0,
+          8.0
+        ],
+        "K": [
+          0.2,
+          0.8
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 4.5,
+        "K_min": 0.407
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Характерное время (Политология)",
+          "description": "Среднее время реакции или обновления",
+          "typical_values": "1–30"
+        },
+        "K": {
+          "industry_term": "Коэффициент связности",
+          "description": "Сила взаимодействия между элементами",
+          "typical_values": "0.3–0.8"
+        },
+        "eta": {
+          "industry_term": "Уровень шума/вариации",
+          "description": "Относительная изменчивость параметров",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
+      "example_data": {
+        "type": "graph_invariant",
+        "daily_sales_mean": 100,
+        "daily_sales_std": 65,
+        "current_lead_time": 7.0,
+        "old_safety_stock_coef": 0.2
+      },
+      "description": "Институциональная устойчивость — модель для анализа Политология в области Социальные системы. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M27",
+      "logia": "Химия",
+      "industry": "Химическая кинетика",
+      "name": "Автокаталитические процессы",
+      "math_type": "lotka_volterra",
+      "key_params": [
+        "K",
+        "tau",
+        "eta"
+      ],
+      "programs": [
+        "Cantera",
+        "COPASI"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.657,
+          "k": 8.9,
+          "D": 2.041
+        },
+        "influence": {
+          "h": 1.993,
+          "T": 1.777,
+          "eta": 0.202
+        },
+        "dynamics": {
+          "omega_i": 0.128,
+          "K": 0.401,
+          "K_c": 0.418,
+          "p": 0.537,
+          "model": "lotka_volterra"
+        },
+        "time": {
+          "tau": 3.258,
+          "H": 0.671,
+          "freq": 0.27
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          2.0,
+          10.0
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.301
+      },
+      "translation_map": {
+        "K": {
+          "industry_term": "Коэффициент конкуренции",
+          "description": "Сила подавления одной популяции другой",
+          "typical_values": "0.2–0.7"
+        },
+        "tau": {
+          "industry_term": "Период обновления",
+          "description": "Время между циклами воспроизводства",
+          "typical_values": "2–100"
+        },
+        "eta": {
+          "industry_term": "Изменчивость ресурсов",
+          "description": "Коэффициент вариации доступности ресурсов",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max=0.5 и период обновления τ_max=7.0: при превышении стационарное сосуществование разрушается.",
+      "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta/eta_crit -1)*(K/K_c -1)) if K > K_c else 0",
+      "example_data": {
+        "type": "lotka_volterra",
+        "predator_growth": 0.4,
+        "prey_death": 0.3,
+        "interaction": 0.5,
+        "noise_eta": 0.2
+      },
+      "description": "Автокаталитические процессы — модель для анализа Химия в области Химическая кинетика. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M28",
+      "logia": "Астрономия",
+      "industry": "Космическая динамика",
+      "name": "Орбитальная стабильность",
+      "math_type": "graph_invariant",
+      "key_params": [
+        "K",
+        "p",
+        "eta"
+      ],
+      "programs": [
+        "REBOUND",
+        "Astropy"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.546,
+          "k": 9.9,
+          "D": 2.806
+        },
+        "influence": {
+          "h": 2.067,
+          "T": 1.742,
+          "eta": 0.232
+        },
+        "dynamics": {
+          "omega_i": 0.473,
+          "K": 0.69,
+          "K_c": 0.349,
+          "p": 0.778,
+          "model": "graph_invariant"
+        },
+        "time": {
+          "tau": 4.13,
+          "H": 0.557,
+          "freq": 0.898
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          1.0,
+          8.0
+        ],
+        "K": [
+          0.2,
+          0.8
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 4.5,
+        "K_min": 0.59
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Характерное время (Астрономия)",
+          "description": "Среднее время реакции или обновления",
+          "typical_values": "1–30"
+        },
+        "K": {
+          "industry_term": "Коэффициент связности",
+          "description": "Сила взаимодействия между элементами",
+          "typical_values": "0.3–0.8"
+        },
+        "eta": {
+          "industry_term": "Уровень шума/вариации",
+          "description": "Относительная изменчивость параметров",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
+      "example_data": {
+        "type": "graph_invariant",
+        "daily_sales_mean": 100,
+        "daily_sales_std": 65,
+        "current_lead_time": 7.0,
+        "old_safety_stock_coef": 0.2
+      },
+      "description": "Орбитальная стабильность — модель для анализа Астрономия в области Космическая динамика. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M29",
+      "logia": "Инженерия",
+      "industry": "Сложные системы",
+      "name": "Синхронизация распределённых систем",
+      "math_type": "kuramoto",
+      "key_params": [
+        "tau",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "MATLAB",
+        "Python"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.62,
+          "k": 28.0,
+          "D": 2.76
+        },
+        "influence": {
+          "h": 1.085,
+          "T": 0.96,
+          "eta": 0.304
+        },
+        "dynamics": {
+          "omega_i": 0.819,
+          "K": 0.728,
+          "K_c": 0.604,
+          "p": 0.858,
+          "model": "kuramoto"
+        },
+        "time": {
+          "tau": 1.581,
+          "H": 0.581,
+          "freq": 2.196
+        }
+      },
+      "expected_ranges": {
+        "tau": [
+          0.5,
+          3.0
+        ],
+        "K": [
+          0.5,
+          1.0
+        ],
+        "eta": [
+          0.05,
+          0.5
+        ]
+      },
+      "weights": {
+        "tau": 0.4,
+        "K": 0.4,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.38,
+        "tau_max": 2.3,
+        "K_min": 0.628
+      },
+      "translation_map": {
+        "tau": {
+          "industry_term": "Задержка синхронизации",
+          "description": "Время запаздывания в передаче сигнала",
+          "typical_values": "0.5–3.0"
+        },
+        "K": {
+          "industry_term": "Коэффициент синхронизации",
+          "description": "Сила связи, определяющая синхронизацию",
+          "typical_values": "0.5–1.0"
+        },
+        "eta": {
+          "industry_term": "Уровень шума",
+          "description": "Интенсивность случайных возмущений",
+          "typical_values": "0.05–0.5"
+        }
+      },
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
+      "example_data": {
+        "type": "kuramoto",
+        "coupling_K": 0.72,
+        "K_c": 0.58,
+        "noise_eta": 0.28,
+        "delay_tau_hours": 1.8,
+        "route_count": 120
+      },
+      "description": "Синхронизация распределённых систем — модель для анализа Инженерия в области Сложные системы. Применима для кросс-дисциплинарных инвариантов."
+    },
+    {
+      "id": "M30",
+      "logia": "Междисциплинарно",
+      "industry": "Общие сложные системы",
+      "name": "Метастабильность и критические переходы",
+      "math_type": "percolation",
+      "key_params": [
+        "p",
+        "K",
+        "eta"
+      ],
+      "programs": [
+        "NetLogo",
+        "Mesa",
+        "Python"
+      ],
+      "disc_code": "0",
+      "sector_code": "0.0",
+      "four_d_matrix": {
+        "structure": {
+          "C": 0.696,
+          "k": 5.9,
+          "D": 2.192
+        },
+        "influence": {
+          "h": 2.935,
+          "T": 1.724,
+          "eta": 0.495
+        },
+        "dynamics": {
+          "omega_i": 1.111,
+          "K": 0.457,
+          "K_c": 0.392,
+          "p": 0.524,
+          "model": "percolation"
+        },
+        "time": {
+          "tau": 2.379,
+          "H": 0.582,
+          "freq": 0.668
+        }
+      },
+      "expected_ranges": {
+        "p": [
+          0.2,
+          0.8
+        ],
+        "K": [
+          0.2,
+          0.7
+        ],
+        "eta": [
+          0.1,
+          0.6
+        ]
+      },
+      "weights": {
+        "p": 0.5,
+        "K": 0.3,
+        "eta": 0.2
+      },
+      "critical_thresholds": {
+        "eta_max": 0.5,
+        "tau_max": 7.0,
+        "K_min": 0.357,
+        "p_crit": 0.424
+      },
+      "translation_map": {
+        "p": {
+          "industry_term": "Вероятность активации",
+          "description": "Доля активных элементов или связей",
+          "typical_values": "0.2–0.8"
+        },
+        "K": {
+          "industry_term": "Порог перколяции",
+          "description": "Критическая связность",
+          "typical_values": "0.2–0.7"
+        },
+        "eta": {
+          "industry_term": "Неоднородность",
+          "description": "Коэффициент вариации свойств",
+          "typical_values": "0.1–0.6"
+        }
+      },
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.424 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
+      "example_data": {
+        "type": "percolation",
+        "p_measured": 0.52,
+        "p_crit": 0.35,
+        "K_connectivity": 0.48,
+        "noise_eta": 0.38,
+        "tau_lag_months": 6.8
+      },
+      "description": "Метастабильность и критические переходы — модель для анализа Междисциплинарно в области Общие сложные системы. Применима для кросс-дисциплинарных инвариантов."
     }
   ]
 }
