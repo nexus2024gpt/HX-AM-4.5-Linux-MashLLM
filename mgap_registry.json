@@ -381,12 +381,6 @@
           "description": "Уровень флуктуаций",
           "typical_values": "0.05–0.5"
         }
-        ,
-        "tau": {
-          "industry_term": "Задержка институциональной реакции",
-          "description": "Время между событием и ответом политической системы",
-          "typical_values": "0.5–24.0 мес."
-        }
       },
       "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.231: возможно потеря устойчивости.",
       "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
