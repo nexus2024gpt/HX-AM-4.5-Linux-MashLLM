@@ -1106,11 +1106,13 @@ class MGAPMatcher:
 
         if mt == "ising":
             key_params = [("T", flat["T"]), ("K", flat["K"]), ("eta", flat["eta"])]
-        elif mt in ("percolation",):
+        elif mt == "percolation":
             key_params = [("p",   flat["p"]),
                           ("K",   flat["K"]),
                           ("eta", flat["eta"])]
-        elif mt in ("lotka_volterra",):
+            if "tau" in tmap:
+                key_params.append(("tau", flat["tau"]))
+        elif mt == "lotka_volterra":
             key_params = [("K",   flat["K"]),
                           ("tau", flat["tau"]),
                           ("eta", flat["eta"])]
@@ -1143,9 +1145,17 @@ class MGAPMatcher:
         return result
 
     def _improve_blind_spot(self, template: str, model: Dict) -> str:
+        """
+        v4.6: жёсткий шаблон. Если template уже содержит числа из critical_thresholds —
+        возвращаем как есть. LLM вызываем только для коротких шаблонов без чисел.
+        Запрещаем LLM добавлять свой текст — только подставлять отраслевое последствие.
+        """
         if not template:
             return template
-        if len(template) >= 80:
+
+        import re as _re
+        has_numbers = bool(_re.search(r'\d+\.?\d*', template))
+        if has_numbers and len(template) >= 60:
             return template
 
         if not self.llm:
@@ -1153,19 +1163,64 @@ class MGAPMatcher:
 
         from retry_manager import retry_manager
 
-        mt     = _norm_math_type(model.get("math_type", ""))
-        logia  = model.get("logia", "неизвестная отрасль")
-        name   = model.get("name", "")
+        mt    = _norm_math_type(model.get("math_type", ""))
+        logia = model.get("logia", "неизвестная отрасль")
+        name  = model.get("name", "")
+        ct    = model.get("critical_thresholds", {})
+
+        numbers_context = []
+        if ct.get("eta_max") is not None:
+            numbers_context.append(f"η_max={ct['eta_max']}")
+        if ct.get("tau_max") is not None:
+            numbers_context.append(f"τ_max={ct['tau_max']}")
+        if ct.get("p_crit") is not None:
+            numbers_context.append(f"p_crit={ct['p_crit']}")
+        if ct.get("K_min") is not None:
+            numbers_context.append(f"K_min={ct['K_min']}")
+        if ct.get("T_crit") is not None:
+            numbers_context.append(f"T_crit={ct['T_crit']}")
+        numbers_str = ", ".join(numbers_context) if numbers_context else "см. реестр"
+
+        fewshot_map = {
+            "percolation": (
+                "Пример: «Стандартные модели эпидемиологии не отслеживают "
+                "p_crit=0.572 и η_max=0.5: при p > p_crit происходит "
+                "взрывной рост заражений, который не прогнозируется SIR-моделью.»"
+            ),
+            "kuramoto": (
+                "Пример: «Стандартные алгоритмы не отслеживают τ_max=2.3 "
+                "и η_max=0.38: превышение τ в Brian2 переводит нейронную сеть "
+                "в режим десинхронизации с потерей когерентности.»"
+            ),
+            "graph_invariant": (
+                "Пример: «Стандартные WMS не учитывают CV>0.5 и lag>4.5 дней: "
+                "при превышении страховой запас SAP EWM занижается на 20–50%.»"
+            ),
+            "delay": (
+                "Пример: «Стандартные модели не отслеживают τ_max=5.5 и K_min=0.3: "
+                "при K·τ > π/2 система в Dynare входит в колебательную неустойчивость.»"
+            ),
+            "ising": (
+                "Пример: «Стандартные расчёты не отслеживают T_crit=0.71 "
+                "и η_max=0.4: при T ≥ T_crit в LAMMPS кристалл переходит "
+                "в неупорядоченную фазу с потерей дальнего порядка.»"
+            ),
+        }
+        fewshot = fewshot_map.get(mt, fewshot_map.get("graph_invariant", ""))
 
         prompt = (
-            f"Дополни ОДНИМ предложением описание слепой зоны для модели «{name}» "
-            f"(отрасль: {logia}, тип: {mt}).\n"
-            f"Правила:\n"
-            f"  - Сохрани ВСЕ числа из исходного текста.\n"
-            f"  - Добавь конкретное отраслевое последствие (что именно произойдёт в {logia}).\n"
-            f"  - НЕ добавляй общих слов типа «система», «процесс», «механизм» без конкретики.\n"
-            f"  - Ответ: только готовый текст, одним абзацем, без пояснений.\n\n"
-            f"Исходный текст:\n{template}"
+            f"Дополни описание слепой зоны для модели «{name}» "
+            f"(отрасль: {logia}, math_type: {mt}).\n\n"
+            f"{fewshot}\n\n"
+            f"ТРЕБОВАНИЯ (строго):\n"
+            f"  1. Используй ВСЕ числа из списка: {numbers_str}\n"
+            f"  2. Добавь ОДНО конкретное последствие для отрасли «{logia}»\n"
+            f"  3. Упомяни конкретную программу: "
+            f"{', '.join((model.get('programs') or ['целевую систему'])[:2])}\n"
+            f"  4. НЕ добавляй общих слов «система», «процесс», «механизм» "
+            f"без конкретного субъекта\n"
+            f"  5. Ответ — ТОЛЬКО текст описания, один абзац, без пояснений\n\n"
+            f"Исходный шаблон:\n{template}"
         )
 
         def _call():
@@ -1174,14 +1229,20 @@ class MGAPMatcher:
 
         result = retry_manager.call_with_retry(
             func=_call,
-            validator=retry_manager.validator_field(min_len=40),
+            validator=retry_manager.validator_field(min_len=50),
             context="mgap/blind_spot",
         )
 
         if result and result.value:
             improved, _ = result.value
             improved = improved.strip()
-            if len(improved) > 500 or "инструкц" in improved.lower():
+            garbage_markers = (
+                "инструкц", "создание улучшенного", "вот описание",
+                "вот улучшенное", "машинное обучение", "градиентный"
+            )
+            if (len(improved) > 600
+                    or any(m in improved.lower() for m in garbage_markers)):
+                logger.warning("LLM blind_spot returned invalid text, keeping original template")
                 return template
             return improved
         return template
@@ -1194,6 +1255,10 @@ class MGAPMatcher:
         flat: Dict,
         thresholds: Dict,
     ) -> Optional[Dict]:
+        """
+        v4.6: few-shot в промпте, обязательные числовые ссылки,
+        запрет пересказа гипотезы, предсказание для конкретной программы.
+        """
         if not self.llm or resonance < 0.5:
             return None
 
@@ -1205,53 +1270,119 @@ class MGAPMatcher:
         mt         = _norm_math_type(model.get("math_type", ""))
         logia      = model.get("logia", "")
         name       = model.get("name", "")
-        progs      = ", ".join(model.get("programs", [])[:2])
+        progs      = (model.get("programs") or ["целевую систему"])[:2]
+        prog1      = progs[0]
+        progs_str  = ", ".join(progs)
         eta_c      = thresholds["eta_critical"]
         tau_c      = thresholds["tau_robustness"]
-        K_val      = flat.get("K", 0.35)
+        K_val      = flat.get("K",   0.35)
         eta_val    = flat.get("eta", 0.2)
         tau_val    = flat.get("tau", 0.5)
+        p_val      = flat.get("p",   0.65)
         art_domain = artifact.get("data", {}).get("domain", "?")
+        ct         = model.get("critical_thresholds", {})
+        K_min      = float(ct.get("K_min", 0.0))
+        p_crit     = float(ct.get("p_crit", 0.0))
 
-        eta_ok  = eta_val <= eta_c
-        tau_ok  = tau_val <= tau_c
+        if mt == "percolation":
+            params_block = (
+                f"  p={p_val:.3f}  K={K_val:.3f}  η={eta_val:.3f}\n"
+                f"  p_crit={p_crit:.3f}  η_crit={eta_c:.3f}  τ_crit={tau_c:.3f}"
+            )
+            risk_hint = (
+                f"Какой из порогов p_crit={p_crit:.3f} или η_crit={eta_c:.3f} "
+                f"ближе к нарушению? Что произойдёт в {prog1}?"
+            )
+        elif mt == "kuramoto":
+            params_block = (
+                f"  K={K_val:.3f}  K_c≈{flat.get('K_c', 0.5):.3f}  "
+                f"η={eta_val:.3f}  τ={tau_val:.3f}\n"
+                f"  η_crit={eta_c:.3f}  τ_crit={tau_c:.3f}  K_min={K_min:.3f}"
+            )
+            risk_hint = (
+                f"Что ближе к порогу: K vs K_c, или η={eta_val:.3f} vs η_crit={eta_c:.3f}, "
+                f"или τ={tau_val:.3f} vs τ_crit={tau_c:.3f}? Что случится в {prog1}?"
+            )
+        elif mt == "ising":
+            T_crit = float(ct.get("T_crit", K_val))
+            T_val  = flat.get("T", 1.0)
+            params_block = (
+                f"  T={T_val:.3f}  K={K_val:.3f}  η={eta_val:.3f}\n"
+                f"  T_crit={T_crit:.3f}  η_crit={eta_c:.3f}"
+            )
+            risk_hint = (
+                f"Упорядоченная фаза: T < T_crit={T_crit:.3f}. "
+                f"Насколько T={T_val:.3f} близко к порогу? Что в {prog1}?"
+            )
+        elif mt in ("delay", "delay_ode"):
+            params_block = (
+                f"  K={K_val:.3f}  τ={tau_val:.3f}  η={eta_val:.3f}\n"
+                f"  K_min={K_min:.3f}  τ_crit={tau_c:.3f}  η_crit={eta_c:.3f}"
+            )
+            risk_hint = (
+                f"Как близки K={K_val:.3f} и K_min={K_min:.3f}, или τ={tau_val:.3f} "
+                f"и τ_crit={tau_c:.3f}? Как это повлияет на {prog1}?"
+            )
+        elif mt == "lotka_volterra":
+            params_block = (
+                f"  K={K_val:.3f}  η={eta_val:.3f}  τ={tau_val:.3f}\n"
+                f"  K_min={K_min:.3f}  η_crit={eta_c:.3f}  τ_crit={tau_c:.3f}"
+            )
+            risk_hint = (
+                f"Насколько взаимодействие K={K_val:.3f} превышает K_min={K_min:.3f}, "
+                f"и что произойдёт в {prog1} при τ={tau_val:.3f}?"
+            )
+        else:
+            params_block = (
+                f"  K={K_val:.3f}  η={eta_val:.3f}  τ={tau_val:.3f}\n"
+                f"  η_crit={eta_c:.3f}  τ_crit={tau_c:.3f}"
+            )
+            risk_hint = (
+                f"Что важнее для {prog1}: η={eta_val:.3f} vs η_crit={eta_c:.3f} или "
+                f"τ={tau_val:.3f} vs τ_crit={tau_c:.3f}?"
+            )
 
         fewshot = (
-            'Пример хорошего ответа:\n'
-            '{"why_applicable": "Инвариант (синхронизация нейронов) переносится в модель '
-            'нейронной синхронизации: оба используют kuramoto с K=0.874 > K_c=0.508. '
-            'η=0.22 ниже η_crit=0.38 — шум не разрушает когерентность.", '
-            '"main_risk": "τ=1.479 близко к τ_crit=2.3: рост задержек на 50% '
-            'переведёт систему за порог, что в Brian2 даст desync.", '
-            '"dev_action": "Добавить mgap_stability_monitor(K=0.874, eta=0.22, tau=1.479) '
-            'перед вызовом simulate() в Brian2.", '
-            '"confidence": 0.8}'
+            "ПРИМЕР ХОРОШЕГО ОТВЕТА:\n"
+            '{"why_applicable": "Инвариант (синхронизация нейронов, domain=neuroscience) '
+            'резонирует с моделью нейронной синхронизации: оба kuramoto, '
+            'K=0.874 > K_c=0.508 — система за критическим порогом, '
+            'η=0.22 < η_crit=0.38 — шум не разрушает когерентность.", '
+            '"main_risk": "τ=1.479 близко к τ_crit=2.3 (запас 22%): '
+            'рост задержек в Brian2 на 50% переведёт систему за порог — '
+            'desync и потеря паттернов.", '
+            '"dev_action": "В Brian2 перед simulate(): '
+            'mgap_stability_monitor(K=0.874, eta=0.22, tau=1.479). '
+            'Добавить assert coupling_strength > 0.666.", '
+            '"confidence": 0.82}'
         )
 
         prompt = (
             f"Ты MGAP-аналитик. Оцени применимость инварианта к отраслевой модели.\n\n"
             f"{fewshot}\n\n"
-            f"---\n"
-            f"Инвариант ({art_domain}): {hypothesis}\n"
-            f"Модель: {name} ({logia}), math_type={mt}\n"
-            f"Программы: {progs}\n\n"
-            f"Числовые параметры артефакта:\n"
-            f"  K={K_val:.3f}  η={eta_val:.3f}  τ={tau_val:.3f}\n"
-            f"  η_crit={eta_c:.3f} ('ok'={str(eta_ok)})  "
-            f"  τ_crit={tau_c:.3f} ('ok'={str(tau_ok)})\n\n"
-            f"Правила ответа:\n"
-            f"  1. why_applicable: укажи конкретные параметры (K, η, τ) и почему они подходят.\n"
-            f"  2. main_risk: укажи конкретный порог который ближе всего к нарушению + "
-            f"что произойдёт в {progs or 'программе'}.\n"
-            f"  3. dev_action: конкретная строка кода/вызов функции в {progs or 'системе'}.\n"
-            f"  4. НЕ пересказывай гипотезу. Только анализ применимости.\n"
-            f"  5. Все числа из блока выше должны фигурировать в ответе.\n\n"
-            f"Верни ТОЛЬКО JSON (без пояснений):\n"
+            f"───\n"
+            f"Инвариант (домен: {art_domain}): {hypothesis}\n"
+            f"Модель: «{name}» ({logia}), math_type={mt}\n"
+            f"Программы: {progs_str}\n\n"
+            f"Числовые параметры артефакта:\n{params_block}\n\n"
+            f"Вопрос для main_risk: {risk_hint}\n\n"
+            f"ПРАВИЛА ОТВЕТА:\n"
+            f"  1. why_applicable: назови конкретные параметры с числами и объясни "
+            f"почему они совместимы с моделью {name}.\n"
+            f"  2. main_risk: укажи КОНКРЕТНЫЙ порог ближайший к нарушению "
+            f"(с числами) и что произойдёт в {prog1}.\n"
+            f"  3. dev_action: конкретный вызов функции/метода в {prog1} "
+            f"с реальными значениями параметров.\n"
+            f"  4. НЕ пересказывай гипотезу. Анализируй ПРИМЕНИМОСТЬ.\n"
+            f"  5. НЕ используй слова «система», «процесс», «механизм» "
+            f"без конкретного субъекта из {logia}.\n"
+            f"  6. Все числа из блока параметров ДОЛЖНЫ появиться в ответе.\n\n"
+            f"Верни ТОЛЬКО JSON:\n"
             f'{{"why_applicable": "...", "main_risk": "...", '
             f'"dev_action": "...", "confidence": 0.0}}'
         )
 
-        import re
+        import re as _re
 
         def _call_analysis():
             text, model_used = self._llm_generate(prompt, purpose="match_analysis")
@@ -1260,7 +1391,7 @@ class MGAPMatcher:
         from retry_manager import retry_manager
         result = retry_manager.call_with_retry(
             func=_call_analysis,
-            validator=retry_manager.validator_field(min_len=40),
+            validator=retry_manager.validator_field(min_len=50),
             context="mgap/match_analysis",
         )
 
@@ -1271,8 +1402,8 @@ class MGAPMatcher:
         if not text:
             return None
 
-        cleaned = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
-        match   = re.search(r"\{[\s\S]*\}", cleaned)
+        cleaned = _re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
+        match   = _re.search(r"\{[\s\S]*\}", cleaned)
         if not match:
             return None
         try:
