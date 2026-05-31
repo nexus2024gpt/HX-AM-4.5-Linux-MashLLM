@@ -15,6 +15,9 @@ v4.6 исправления:
   - _calculate_example использует p_crit из critical_thresholds модели
   - graph_invariant поддерживает отраслевые контексты по logia
   - percolation example синхронизирован с модельными порогами
+    - Применены правки из `mgap_matcher_ref.txt` (2026-05-31):
+        расширены отраслевые контексты, улучшена генерация слепых зон
+        и форматирования шаблонов с использованием `critical_thresholds`.
 """
 
 from __future__ import annotations
@@ -41,86 +44,118 @@ REGISTRY_PATH = Path("mgap_registry.json")
 
 LOGIA_GRAPH_INVARIANT_CONTEXT: Dict[str, Dict[str, Any]] = {
     "Логистика": {
-        "flow_name":  "daily_sales",
-        "flow_label": "Среднедневные продажи",
-        "lag_label":  "Срок поставки (дней)",
+        "flow_name":    "daily_sales",
+        "flow_label":   "Среднедневные продажи",
+        "lag_label":    "Срок поставки (дней)",
         "buffer_label": "Страховой запас (коэф.)",
-        "flow_mean":  100.0,
-        "flow_std":   30.0,
-        "lag":        3.0,
-        "old_coef":   0.2,
+        "flow_mean":  100.0,  "flow_std":  30.0,  "lag": 3.0,  "old_coef": 0.2,
     },
     "Астрономия": {
-        "flow_name":  "orbital_velocity",
-        "flow_label": "Орбитальная скорость",
-        "lag_label":  "Время передачи сигнала",
-        "buffer_label": "Запас стабильности орбиты",
-        "flow_mean":  1.0,
-        "flow_std":   0.3,
-        "lag":        2.0,
-        "old_coef":   0.15,
+        "flow_name":    "orbital_velocity",
+        "flow_label":   "Орбитальная скорость (усл. ед.)",
+        "lag_label":    "Время передачи сигнала (с)",
+        "buffer_label": "Запас стабильности орбиты (коэф.)",
+        "flow_mean":  1.0,    "flow_std":  0.3,   "lag": 2.0,  "old_coef": 0.15,
     },
     "Экология": {
-        "flow_name":  "biomass_flow",
-        "flow_label": "Поток биомассы (т/год)",
-        "lag_label":  "Время оборота популяции (лет)",
+        "flow_name":    "biomass_flow",
+        "flow_label":   "Поток биомассы (т/год)",
+        "lag_label":    "Время оборота популяции (лет)",
         "buffer_label": "Резервный запас биомассы (коэф.)",
-        "flow_mean":  500.0,
-        "flow_std":   150.0,
-        "lag":        5.0,
-        "old_coef":   0.25,
+        "flow_mean":  500.0,  "flow_std": 150.0,  "lag": 5.0,  "old_coef": 0.25,
     },
     "Инженерия": {
-        "flow_name":  "throughput",
-        "flow_label": "Пропускная способность",
-        "lag_label":  "Задержка передачи (мс)",
+        "flow_name":    "throughput",
+        "flow_label":   "Пропускная способность (ед./с)",
+        "lag_label":    "Задержка передачи (мс)",
         "buffer_label": "Резерв буфера (коэф.)",
-        "flow_mean":  1000.0,
-        "flow_std":   200.0,
-        "lag":        1.5,
-        "old_coef":   0.1,
+        "flow_mean":  1000.0, "flow_std": 200.0,  "lag": 1.5,  "old_coef": 0.1,
     },
     "Политология": {
-        "flow_name":  "influence_flow",
-        "flow_label": "Поток влияния (индекс)",
-        "lag_label":  "Задержка реакции системы (мес.)",
+        "flow_name":    "influence_flow",
+        "flow_label":   "Поток влияния (индекс)",
+        "lag_label":    "Задержка реакции системы (мес.)",
         "buffer_label": "Резерв институциональной устойчивости",
-        "flow_mean":  50.0,
-        "flow_std":   20.0,
-        "lag":        6.0,
-        "old_coef":   0.3,
+        "flow_mean":  50.0,   "flow_std":  20.0,  "lag": 6.0,  "old_coef": 0.3,
     },
     "Социология": {
-        "flow_name":  "information_flow",
-        "flow_label": "Поток информации (ед./час)",
-        "lag_label":  "Время распространения (часы)",
+        "flow_name":    "information_flow",
+        "flow_label":   "Поток информации (ед./час)",
+        "lag_label":    "Время распространения (часы)",
         "buffer_label": "Буфер фильтрации контента",
-        "flow_mean":  200.0,
-        "flow_std":   80.0,
-        "lag":        4.0,
-        "old_coef":   0.2,
+        "flow_mean":  200.0,  "flow_std":  80.0,  "lag": 4.0,  "old_coef": 0.2,
     },
     "Технологии": {
-        "flow_name":  "request_rate",
-        "flow_label": "Частота запросов (req/s)",
-        "lag_label":  "Задержка ответа (мс)",
+        "flow_name":    "request_rate",
+        "flow_label":   "Частота запросов (req/s)",
+        "lag_label":    "Задержка ответа (мс)",
         "buffer_label": "Буфер очереди (коэф.)",
-        "flow_mean":  500.0,
-        "flow_std":   100.0,
-        "lag":        0.8,
-        "old_coef":   0.15,
+        "flow_mean":  500.0,  "flow_std": 100.0,  "lag": 0.8,  "old_coef": 0.15,
+    },
+    "Геонауки": {
+        "flow_name":    "seismic_energy",
+        "flow_label":   "Сейсмическая энергия (усл. ед.)",
+        "lag_label":    "Время накопления напряжений (лет)",
+        "buffer_label": "Запас сейсмической прочности (коэф.)",
+        "flow_mean":  300.0,  "flow_std": 120.0,  "lag": 8.0,  "old_coef": 0.35,
+    },
+    "Океанография": {
+        "flow_name":    "current_velocity",
+        "flow_label":   "Скорость течения (м/с)",
+        "lag_label":    "Время перестройки циркуляции (лет)",
+        "buffer_label": "Запас устойчивости циркуляции",
+        "flow_mean":  0.5,    "flow_std":  0.2,   "lag": 10.0, "old_coef": 0.2,
+    },
+    "Физика": {
+        "flow_name":    "energy_flux",
+        "flow_label":   "Поток энергии (Вт/м²)",
+        "lag_label":    "Время релаксации (с)",
+        "buffer_label": "Буфер энергетического резерва",
+        "flow_mean":  100.0,  "flow_std":  25.0,  "lag": 1.0,  "old_coef": 0.15,
+    },
+    "Материаловедение": {
+        "flow_name":    "strain_rate",
+        "flow_label":   "Скорость деформации (1/с)",
+        "lag_label":    "Время релаксации напряжений (с)",
+        "buffer_label": "Запас прочности материала",
+        "flow_mean":  0.01,   "flow_std":  0.003, "lag": 0.5,  "old_coef": 0.2,
+    },
+    "Химия": {
+        "flow_name":    "reaction_rate",
+        "flow_label":   "Скорость реакции (моль/л·с)",
+        "lag_label":    "Индукционный период (с)",
+        "buffer_label": "Запас реагентов (коэф.)",
+        "flow_mean":  0.1,    "flow_std":  0.04,  "lag": 2.0,  "old_coef": 0.3,
+    },
+    "Биология": {
+        "flow_name":    "population_density",
+        "flow_label":   "Плотность популяции (ос./км²)",
+        "lag_label":    "Время генерации (лет)",
+        "buffer_label": "Резервная ёмкость среды (коэф.)",
+        "flow_mean":  1000.0, "flow_std": 300.0,  "lag": 3.0,  "old_coef": 0.25,
+    },
+    "Экономика": {
+        "flow_name":    "transaction_volume",
+        "flow_label":   "Объём транзакций (ед./день)",
+        "lag_label":    "Лаг реакции рынка (дней)",
+        "buffer_label": "Резервный капитал (коэф.)",
+        "flow_mean":  10000.0,"flow_std":3000.0,  "lag": 5.0,  "old_coef": 0.15,
+    },
+    "Междисциплинарно": {
+        "flow_name":    "system_flux",
+        "flow_label":   "Системный поток (усл. ед.)",
+        "lag_label":    "Задержка обратной связи (усл. ед.)",
+        "buffer_label": "Буфер системной устойчивости (коэф.)",
+        "flow_mean":  100.0,  "flow_std":  30.0,  "lag": 3.0,  "old_coef": 0.2,
     },
 }
 
 _DEFAULT_GI_CONTEXT: Dict[str, Any] = {
-    "flow_name":  "flow_value",
-    "flow_label": "Значение потока",
-    "lag_label":  "Задержка (ед. времени)",
+    "flow_name":    "flow_value",
+    "flow_label":   "Значение потока",
+    "lag_label":    "Задержка (усл. ед.)",
     "buffer_label": "Коэффициент буфера",
-    "flow_mean":  100.0,
-    "flow_std":   30.0,
-    "lag":        3.0,
-    "old_coef":   0.2,
+    "flow_mean":  100.0, "flow_std": 30.0, "lag": 3.0, "old_coef": 0.2,
 }
 
 
@@ -841,8 +876,8 @@ def _build_verdict(
             "blind_spot":     (model.get("blind_spot_template") or "—").format(
                                   eta_max=thresholds["eta_critical"],
                                   tau_max=thresholds["tau_robustness"],
-                                  p_crit=0.37,
-                                  p=0.52,
+                                  p_crit=model.get("critical_thresholds", {}).get("p_crit", 0.37),
+                                  p=model.get("example_data", {}).get("p_measured", 0.52),
             ),
             "recommendation": biz_rec,
             "stability_score": stability_score,
@@ -999,10 +1034,14 @@ class MGAPMatcher:
     ) -> Dict[str, Any]:
         math_match  = _norm_math_type(model.get("math_type", "")) == art_math
         translation = self._translate_params(flat, thresholds, model)
+        ct_for_blind = model.get("critical_thresholds", {})
         raw_blind   = (model.get("blind_spot_template") or "").format(
             eta_max=thresholds["eta_critical"],
             tau_max=thresholds["tau_robustness"],
-            p_crit=0.37, p=flat.get("p", 0.5),
+            p_crit=ct_for_blind.get("p_crit", 0.37),
+            p=flat.get("p", 0.5),
+            K_min=ct_for_blind.get("K_min", 0.0),
+            T_crit=ct_for_blind.get("T_crit", 0.0),
         )
         # blind_spot через LLM (Groq/Mash first)
         blind_spot   = self._improve_blind_spot(raw_blind, model)
