@@ -223,6 +223,27 @@ def _try_parse(text: str) -> Optional[dict]:
     except Exception:
         return None
 
+def _extract_balanced_json(text: str) -> Optional[dict]:
+    """Ищет первый сбалансированный JSON объект { ... } в тексте, работая с вложенными скобками."""
+    start = text.find('{')
+    if start == -1:
+        return None
+    stack = 0
+    for i, ch in enumerate(text[start:], start):
+        if ch == '{':
+            stack += 1
+        elif ch == '}':
+            stack -= 1
+            if stack == 0:
+                candidate = text[start:i+1]
+                try:
+                    return json.loads(candidate)
+                except Exception:
+                    # Если не распарсилось, ищем следующий объект (продолжаем)
+                    # Для простоты можно не продолжать, но обычно первый же объект рабочий
+                    pass
+    return None
+
 def extract_json_multi(text: str) -> Tuple[Optional[dict], str]:
     """Multi-strategy JSON extraction from LLM text."""
     if not text or not text.strip():
@@ -255,6 +276,11 @@ def extract_json_multi(text: str) -> Tuple[Optional[dict], str]:
         if r:
             return r, "bracket_closing"
 
+        # Strategy 4b: Balanced braces extraction (new)
+        r = _extract_balanced_json(cleaned)
+        if r:
+            return r, "balanced_braces"
+
         # Strategy 5: Sliding window
         s = candidate.rstrip()
         for trim_char in [',', ':', '"', ' ', '\n']:
@@ -268,20 +294,14 @@ def extract_json_multi(text: str) -> Tuple[Optional[dict], str]:
                 except Exception:
                     pass
 
-    # Strategy 6: Any valid JSON object anywhere in text
-    for match in re.finditer(r'\{[^{}]{10,}\}', text, re.DOTALL):
-        r = _try_parse(match.group(0))
-        if r and len(r) >= 1:
-            return r, "inner_object"
-
-    # Strategy 8: Find JSON inside ```json ... ``` block
+    # Strategy 7: Find JSON inside ```json ... ``` block
     match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
     if match:
         r = _try_parse(match.group(1))
         if r:
             return r, "json_block"
 
-    # Strategy 9: Find JSON after text like "JSON:" or just the last valid object in the text
+    # Strategy 8: Find JSON after text like "JSON:" or just the last valid object in the text
     # Look for patterns like "JSON:\n{...}" or just the outermost {...} after any text
     # First, try to find a JSON object after the last occurrence of "JSON:" (case-insensitive)
     json_marker = re.search(r'JSON:\s*(\{.*\})', text, re.IGNORECASE | re.DOTALL)
@@ -298,7 +318,19 @@ def extract_json_multi(text: str) -> Tuple[Optional[dict], str]:
         if r:
             return r, "outermost_braces"
 
-    # Strategy 7: Regex key-value extraction
+    # Strategy 10: Any valid JSON object anywhere in text, but only if it has critical fields
+    for match in re.finditer(r'\{[^{}]{10,}\}', text, re.DOTALL):
+        candidate = match.group(0)
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict) and len(parsed) >= 1:
+                # Если нет ни одного из ключевых полей, возможно, это неполный/невалидный JSON
+                if any(k in parsed for k in ("verdict", "confidence", "translation")):
+                    return parsed, "inner_object"
+        except Exception:
+            continue
+
+    # Strategy 11: Regex key-value extraction
     partial: Dict[str, Any] = {}
     for m in re.finditer(r'"([a-zA-Zа-яёА-ЯЁ_][a-zA-Zа-яёА-ЯЁ_0-9]*)"\s*:\s*"([^"]{2,})"', text):
         partial[m.group(1)] = m.group(2)

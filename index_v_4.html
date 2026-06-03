@@ -288,6 +288,9 @@ select.f-input option{background:#1e293b}
 .mgap-warn-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;font-weight:700}
 .mgap-warn-yes{background:#ef444422;color:#ef4444;border:1px solid #ef444444}
 .mgap-warn-no {background:#4ade8022;color:#4ade80;border:1px solid #4ade8044}
+.mgap-risk-mult-badge{display:inline-flex;align-items:center;padding:.15rem .5rem;border-radius:12px;font-size:.7rem;font-weight:700;font-family:monospace}
+.mgap-risk-high{background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b55}
+.mgap-risk-ok  {background:#4ade8011;color:#64748b;border:1px solid #33415533}
 .mgap-verdict-dev{background:#6366f111;border-radius:8px;padding:.65rem .85rem;margin-bottom:.5rem;font-size:.78rem}
 .mgap-verdict-biz{background:#4ade8011;border-radius:8px;padding:.65rem .85rem;font-size:.78rem}
 .mgap-verdict-label{font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem}
@@ -855,6 +858,12 @@ function renderMgapMatch(m) {
   const warnBadge = warn
     ? '<span class="mgap-warn-badge mgap-warn-yes">⚠️ Порог превышен</span>'
     : '<span class="mgap-warn-badge mgap-warn-no">✅ Стабильно</span>';
+
+  // risk_multiplier badge
+  const riskMult = m.risk_multiplier || 1.0;
+  const riskMultBadge = riskMult > 1.0
+    ? `<span class="mgap-risk-mult-badge mgap-risk-high">⚡ ×${riskMult.toFixed(2)} риск</span>`
+    : `<span class="mgap-risk-mult-badge mgap-risk-ok">✓ ×${riskMult.toFixed(2)}</span>`;
   const matchBadge = m.math_type_match
     ? '<span style="color:#4ade80;font-size:.7rem">✓ math_type совпадает</span>'
     : '<span style="color:#94a3b8;font-size:.7rem">∿ разные math_type</span>';
@@ -952,8 +961,11 @@ function renderMgapMatch(m) {
           <div class="mgap-match-card" style="margin-bottom:.75rem;border-left:3px solid ${warns.length?'#ef4444':'#4ade80'}">
             <div class="mgap-match-card-head">
               <span class="mgap-match-card-title">🔬 Проверка параметров артефакта</span>
-              <span style="margin-left:auto;font-size:.7rem;font-weight:700;color:${warns.length?'#ef4444':'#4ade80'}">
-                ${warns.length ? '⚠ '+warns.length+' нарушени'+(warns.length===1?'е':'й') : '✓ Всё в норме'}
+              <span style="margin-left:auto;display:flex;align-items:center;gap:.4rem">
+                <span style="font-size:.7rem;font-weight:700;color:${warns.length?'#ef4444':'#4ade80'}">
+                  ${warns.length ? '⚠ '+warns.length+' нарушени'+(warns.length===1?'е':'й') : '✓ Всё в норме'}
+                </span>
+                ${riskMultBadge}
               </span>
             </div>
             <div class="mgap-match-card-body" style="padding:.5rem .75rem">
@@ -966,6 +978,17 @@ function renderMgapMatch(m) {
                     <div style="font-size:.65rem;color:#64748b">${vals}</div>
                   </div>`).join('')}
               </div>
+              ${ac.margins ? `<div style="margin-top:.4rem;padding:.3rem .5rem;background:#0a1628;border-radius:5px">
+                <div style="font-size:.62rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">Запас до порога</div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                  ${Object.entries(ac.margins).map(([k,v]) => {
+                    if (v === null || v === undefined) return '';
+                    const pct = Math.round(v * 100);
+                    const col = pct > 30 ? '#4ade80' : pct > 10 ? '#f59e0b' : '#ef4444';
+                    return `<span style="font-size:.68rem;font-family:monospace;color:${col};background:#1e293b;padding:.1rem .35rem;border-radius:3px">${k}: ${pct}%</span>`;
+                  }).join('')}
+                </div>
+              </div>` : ''}
               ${warns.map(w=>`<div style="font-size:.72rem;color:#f87171;padding:.2rem 0;border-bottom:1px solid #1e3a5f">⚠ ${escHtml(w)}</div>`).join('')}
             </div>
           </div>
@@ -1039,7 +1062,14 @@ function renderMgapMatch(m) {
       <div class="mgap-verdict-biz">
         <div class="mgap-verdict-label">💼 Для бизнеса</div>
         <div style="color:#e2e8f0">${escHtml(vBiz.recommendation||'—')}</div>
-        <div style="font-size:.7rem;color:#4ade80;margin-top:.25rem">${escHtml(vBiz.estimated_roi||'')}</div>
+        <div style="font-size:.72rem;margin-top:.35rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <span style="color:${(vBiz.estimated_roi||'').includes('стабилизировать')||
+                               (vBiz.estimated_roi||'').includes('за критическим') ? '#f59e0b' :
+                               (vBiz.estimated_roi||'').includes('мониторинг') ? '#94a3b8' : '#4ade80'}">
+            ${escHtml(vBiz.estimated_roi||'')}
+          </span>
+          ${riskMult > 1.0 ? `<span class="mgap-risk-mult-badge mgap-risk-high" style="font-size:.65rem">×${riskMult.toFixed(2)}</span>` : ''}
+        </div>
       </div>
     </div>
   </div>`;

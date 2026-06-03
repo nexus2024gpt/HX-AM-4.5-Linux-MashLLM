@@ -198,93 +198,6 @@ def _format_blind_spot(
         return template
 
 
-def _compute_roi_estimate(
-    flat: Dict,
-    model: Dict,
-    thresholds: Dict,
-    stability_score: float = 0.5,
-) -> str:
-    """
-    Вычисляет реалистичную оценку снижения риска на основе запасов
-    до критических порогов конкретной модели.
-    """
-    ct = model.get("critical_thresholds", {})
-    eta_c = float(thresholds.get("eta_critical", ct.get("eta_max", 0.5)))
-    tau_c = float(thresholds.get("tau_robustness", ct.get("tau_max", 5.0)))
-    K_min = float(ct.get("K_min", 0.0))
-
-    eta = float(flat.get("eta", 0.2))
-    tau = float(flat.get("tau", 0.5))
-    K = float(flat.get("K", 0.35))
-
-    margins: List[float] = []
-
-    if eta_c > 0:
-        margins.append(max(0.0, (eta_c - eta) / eta_c))
-
-    if tau_c > 0:
-        margins.append(max(0.0, (tau_c - tau) / tau_c))
-
-    if K_min > 0:
-        margins.append(max(0.0, (K - K_min) / max(K_min, 1e-6)))
-
-    if _norm_math_type(model.get("math_type", "")) == "percolation":
-        p_crit = float(ct.get("p_crit", 0.37))
-        p = float(flat.get("p", 0.5))
-        if p_crit > 0:
-            margins.append(max(0.0, (p - p_crit) / max(1 - p_crit, 1e-6)))
-
-    if not margins:
-        return "Снижение риска каскадных отказов на 10–20%"
-
-    min_margin = min(margins)
-
-    if stability_score >= 0.9:
-        base = 0.30
-    elif stability_score >= 0.7:
-        base = 0.25
-    elif stability_score >= 0.5:
-        base = 0.20
-    else:
-        base = 0.10
-
-    potential = min_margin * base
-    pct = max(5, min(round(potential * 100), 30))
-
-    if pct <= 10:
-        low, high = 5, 10
-    elif pct <= 15:
-        low, high = 10, 15
-    elif pct <= 20:
-        low, high = 15, 20
-    elif pct <= 25:
-        low, high = 20, 25
-    else:
-        low, high = 25, 30
-
-    return f"Снижение риска каскадных отказов на {low}–{high}%"
-
-
-# ══════════════════════════════════════════════════════════
-# ИЗВЛЕЧЕНИЕ ПАРАМЕТРОВ
-# ══════════════════════════════════════════════════════════
-
-def _flat_4d(four_d: Dict) -> Dict[str, Any]:
-    dyn = four_d.get("dynamics", {})
-    inf = four_d.get("influence", {})
-    tim = four_d.get("time", {})
-    return {
-        "tau":     float(tim.get("tau",     0.5)),
-        "K":       float(dyn.get("K",       0.35)),
-        "K_c":     float(dyn.get("K_c",     0.48)),
-        "p":       float(dyn.get("p",       0.65)),
-        "omega_i": float(dyn.get("omega_i", 0.25)),
-        "eta":     float(inf.get("eta",     0.2)),
-        "T":       float(inf.get("T",       1.0)),
-        "h":       float(inf.get("h",       0.5)),
-        "model":   str(dyn.get("model",     "kuramoto")),
-    }
-
 
 def _extract_art_four_d(artifact: Dict) -> Optional[Dict]:
     return artifact.get("data", {}).get("gen", {}).get("four_d_matrix")
@@ -309,6 +222,21 @@ def _extract_thresholds(sim: Dict, ver: Dict, model: Dict) -> Dict:
         "lyapunov_max":     float(sim.get("lyapunov_max", 0.0)),
         "stability_score":  float(sim.get("stability_score", 0.5)),
         "survival_verified": bool(sim.get("survival_verified", False)),
+    }
+
+
+def _flat_4d(four_d: Dict) -> Dict[str, Any]:
+    dyn = four_d.get("dynamics", {})
+    inf = four_d.get("influence", {})
+    tim = four_d.get("time", {})
+    return {
+        "tau":     float(tim.get("tau", 0.5)),
+        "K":       float(dyn.get("K", 0.35)),
+        "K_c":     float(dyn.get("K_c", 0.48)),
+        "eta":     float(inf.get("eta", 0.2)),
+        "omega_i": float(dyn.get("omega_i", 0.25)),
+        "p":       float(dyn.get("p", 0.65)),
+        "model":   str(dyn.get("model", "kuramoto")),
     }
 
 
@@ -511,6 +439,13 @@ def _generate_code(model: Dict, thresholds: Dict, flat: Dict) -> str:
 # ══════════════════════════════════════════════════════════
 
 def _calculate_example(model: Dict, thresholds: Dict) -> Dict:
+    result = _calculate_example_raw(model, thresholds)
+    result["is_synthetic"] = True
+    result["_note"] = "Синтетический пример из реестра. Не используется для ROI и вердикта."
+    return result
+
+
+def _calculate_example_raw(model: Dict, thresholds: Dict) -> Dict:
     example = model.get("example_data") or {}
     eta_c   = thresholds["eta_critical"]
     tau_c   = thresholds["tau_robustness"]
@@ -705,7 +640,7 @@ def _calculate_example(model: Dict, thresholds: Dict) -> Dict:
 def _calculate_with_artifact_params(model: Dict, flat: Dict, thresholds: Dict) -> Dict:
     """
     Проверяет РЕАЛЬНЫЕ параметры артефакта против порогов модели.
-    В отличие от _calculate_example, не использует синтетику из реестра.
+    Вычисляет risk_multiplier — во сколько раз буфер/запас нужно увеличить.
     """
     K     = flat.get("K",   0.35)
     eta   = flat.get("eta", 0.2)
@@ -731,301 +666,188 @@ def _calculate_with_artifact_params(model: Dict, flat: Dict, thresholds: Dict) -
             f"(задержка превышает критический порог)"
         )
 
+    eta_ratio = eta / max(eta_c, 1e-9)
+    tau_ratio = tau / max(tau_c, 1e-9)
+    K_ratio   = K_min / max(K, 1e-9) if K_min > 0 else 0.0
+
+    over_ratios = [r for r in [eta_ratio, tau_ratio, K_ratio] if r > 1.0]
+    risk_multiplier = round(max(over_ratios), 3) if over_ratios else 1.0
+
+    margin_eta = round(max(0.0, (eta_c - eta) / max(eta_c, 1e-9)), 3)
+    margin_tau = round(max(0.0, (tau_c - tau) / max(tau_c, 1e-9)), 3)
+    margin_K   = round(max(0.0, (K - K_min) / max(K_min, 1e-9)), 3) if K_min > 0 else None
+
     return {
-        "example_type": "artifact_params",
-        "artifact_K":   round(K,   4),
-        "artifact_eta": round(eta, 4),
-        "artifact_tau": round(tau, 4),
-        "model_K_min":  K_min,
-        "model_eta_crit": eta_c,
-        "model_tau_crit": tau_c,
-        "K_ok":    K >= K_min if K_min > 0 else True,
-        "eta_ok":  eta <= eta_c,
-        "tau_ok":  tau <= tau_c,
-        "warnings": warns,
-        "stable":   len(warns) == 0,
+        "example_type":     "artifact_params",
+        "is_synthetic":     False,
+        "artifact_K":       round(K,   4),
+        "artifact_eta":     round(eta, 4),
+        "artifact_tau":     round(tau, 4),
+        "model_K_min":      K_min,
+        "model_eta_crit":   eta_c,
+        "model_tau_crit":   tau_c,
+        "K_ok":             K >= K_min if K_min > 0 else True,
+        "eta_ok":           eta <= eta_c,
+        "tau_ok":           tau <= tau_c,
+        "warnings":         warns,
+        "stable":           len(warns) == 0,
         "warning_triggered": len(warns) > 0,
+        "risk_multiplier":  risk_multiplier,
+        "margins": {
+            "eta":  margin_eta,
+            "tau":  margin_tau,
+            **({"K": margin_K} if margin_K is not None else {}),
+        },
     }
 
 
-# ══════════════════════════════════════════════════════════
-# ОБЪЯСНЕНИЕ ПОХОЖЕСТИ
-# ══════════════════════════════════════════════════════════
-
-# Ключевые слова по math_type — для объяснения похожести
-_MATHTYPE_KEYWORDS: Dict[str, List[str]] = {
-    "kuramoto":        ["синхронизация", "фаза", "осциллятор", "связь", "частота",
-                        "synchronization", "phase", "oscillator", "coupling", "frequency"],
-    "percolation":     ["перколяция", "каскад", "порог", "связность", "распространение",
-                        "percolation", "cascade", "threshold", "connectivity"],
-    "ising":           ["бинарный", "спин", "поле", "температура", "фазовый переход",
-                        "binary", "spin", "field", "temperature", "phase transition"],
-    "delay":           ["задержка", "запаздывание", "лаг", "обратная связь",
-                        "delay", "lag", "feedback"],
-    "graph_invariant": ["граф", "топология", "связность", "инвариант", "кластер",
-                        "graph", "topology", "connectivity", "invariant", "cluster"],
-    "lotka_volterra":  ["хищник", "жертва", "конкуренция", "популяция",
-                        "predator", "prey", "competition", "population"],
-}
-
-
-def _build_similarity_explanation(
-    model: Dict,
-    flat: Dict,
-    thresholds: Dict,
-    artifact_hypothesis: str,
-    resonance: float,
-) -> Dict:
-    """
-    Объясняет, почему артефакт похож на модель.
-    Возвращает: matching_keywords, param_proximity, domain_bridge, resonance_tier.
-    """
-    mt = _norm_math_type(model.get("math_type", ""))
-    hyp_lower = artifact_hypothesis.lower()
-
-    keywords = _MATHTYPE_KEYWORDS.get(mt, [])
-    found_kw = [kw for kw in keywords if kw in hyp_lower]
-
-    m4d   = model.get("four_d_matrix") or {}
-    m_dyn = m4d.get("dynamics", {})
-    m_inf = m4d.get("influence", {})
-    m_tim = m4d.get("time", {})
-
-    param_rows = []
-    pairs = [
-        ("K",       flat.get("K",   0.35), float(m_dyn.get("K",   0)),   "константа связи"),
-        ("K_c",     flat.get("K_c", 0.48), float(m_dyn.get("K_c", 0)),   "критич. порог"),
-        ("eta",     flat.get("eta", 0.2),  float(m_inf.get("eta", 0)),   "уровень шума"),
-        ("tau",     flat.get("tau", 0.5),  float(m_tim.get("tau", 0)),   "задержка"),
-        ("omega_i", flat.get("omega_i",0.25), float(m_dyn.get("omega_i",0)), "частота"),
-    ]
-    for name, art_v, mod_v, label in pairs:
-        if mod_v == 0:
-            continue
-        delta = abs(art_v - mod_v)
-        pct   = round(delta / max(mod_v, 1e-6) * 100, 1)
-        close = pct <= 25
-        param_rows.append({
-            "param":   name,
-            "label":   label,
-            "artifact": round(art_v, 3),
-            "model":    round(mod_v, 3),
-            "delta_pct": pct,
-            "close":    close,
-        })
-
-    close_params = [r["param"] for r in param_rows if r["close"]]
-
-    art_domain   = flat.get("artifact_domain", "neuroscience")
-    model_logia  = model.get("logia", "")
-    domain_bridge = f"{art_domain} → {model_logia}"
-
-    if resonance >= 0.8:
-        tier = "высокий"
-    elif resonance >= 0.65:
-        tier = "средний"
-    else:
-        tier = "низкий"
-
-    kw_str    = ", ".join(found_kw[:5]) if found_kw else "нет явных совпадений"
-    close_str = ", ".join(close_params) if close_params else "нет близких параметров"
-    explanation = (
-        f"Оба объекта используют модель {mt}. "
-        f"Совпадающие ключевые слова: {kw_str}. "
-        f"Близкие параметры (отклонение ≤25%%): {close_str}. "
-        f"Резонанс {resonance:.3f} — {tier}."
-    )
-
-    return {
-        "matching_keywords":  found_kw[:8],
-        "param_proximity":    param_rows,
-        "close_params":       close_params,
-        "domain_bridge":      domain_bridge,
-        "resonance_tier":     tier,
-        "resonance":          resonance,
-        "explanation_text":   explanation,
-    }
-
-
-# ══════════════════════════════════════════════════════
-# ЧЕЛОВЕКО-ЧИТАЕМОЕ РЕЗЮМЕ РАСЧЁТА
-# ══════════════════════════════════════════════════════
-
-def _build_calculation_summary(
-    calc: Dict,
+def _compute_roi_estimate(
     artifact_calc: Dict,
+    model: Dict,
     thresholds: Dict,
+    stability_score: float = 0.5,
 ) -> str:
-    parts: list[str] = []
-    warns = artifact_calc.get("warnings", [])
-    if warns:
-        parts.append("⚠ " + "; ".join(warns[:2]))
+    """
+    Вычисляет оценку снижения риска ТОЛЬКО на основе реальных данных
+    артефакта (artifact_calc), не синтетического примера.
+
+    Алгоритм:
+      min_margin = min запас до критических порогов по всем параметрам
+      base_potential зависит от stability_score
+      potential = min_margin * base_potential → округляем до 5%
+    """
+    margins_dict = artifact_calc.get("margins", {})
+
+    if not margins_dict:
+        return "Недостаточно данных для оценки ROI"
+
+    margins = [v for v in margins_dict.values() if v is not None]
+    if not margins:
+        return "Система на пороге нестабильности — ROI не определён"
+
+    min_margin = min(margins)
+
+    if stability_score >= 0.9:
+        base = 0.30
+    elif stability_score >= 0.7:
+        base = 0.25
+    elif stability_score >= 0.5:
+        base = 0.20
     else:
-        parts.append("✓ Параметры артефакта в норме")
-    t = calc.get("example_type", "")
-    if t == "graph_invariant":
-        mult = calc.get("multiplier", 1.0)
-        if calc.get("warning_triggered"):
-            parts.append(f"Буфер ×{mult:.2f}")
-    elif t == "kuramoto":
-        if not calc.get("stable", True):
-            parts.append(f"K < K_c: синхронизация отсутствует")
-    elif t == "delay":
-        margin = calc.get("stability_margin")
-        if margin is not None:
-            parts.append(f"Запас устойч.={margin:.3f}")
-    elif t == "percolation":
-        risk = calc.get("cascade_risk", 0.0)
-        if risk > 0:
-            parts.append(f"Риск каскада {risk:.0%}")
-    elif t == "ising":
-        order = calc.get("order_parameter")
-        if order is not None:
-            parts.append(f"Пар. порядка={order:.3f}")
-    eta_c = thresholds.get("eta_critical", 0)
-    tau_c = thresholds.get("tau_robustness", 0)
-    parts.append(f"η_crit={eta_c:.3f}  τ_crit={tau_c:.3f}")
-    return " | ".join(parts)
+        base = 0.10
+
+    potential = min_margin * base
+
+    if potential <= 0.005:
+        risk_mult = artifact_calc.get("risk_multiplier", 1.0)
+        if risk_mult > 1.0:
+            return (
+                f"Система за критическим порогом (множитель риска ×{risk_mult:.2f}) — "
+                f"сначала стабилизировать параметры"
+            )
+        return "Система на пороге — профилактический мониторинг"
+
+    lo = max(5, int(potential * 100 / 5) * 5)
+    hi = lo + 5
+
+    risk_mult = artifact_calc.get("risk_multiplier", 1.0)
+    mult_str = f" | множитель риска ×{risk_mult:.2f}" if risk_mult > 1.0 else ""
+    return f"Снижение риска каскадных отказов на {lo}–{hi}%{mult_str}"
 
 
-# ══════════════════════════════════════════════════════════
-# ВЕРДИКТ — учитывает survival_verified и stability_score
-# ══════════════════════════════════════════════════════════
+def _build_calculation_summary(calculation: Dict, artifact_calc: Dict, thresholds: Dict) -> Dict:
+    return {
+        "example_type":      calculation.get("example_type", "unknown"),
+        "warning_triggered": calculation.get("warning_triggered", False),
+        "risk_multiplier":  artifact_calc.get("risk_multiplier", 1.0),
+        "stability_score":  thresholds.get("stability_score", 0.0),
+        "artifact_warnings": artifact_calc.get("warnings", []),
+        "example_warnings":  calculation.get("warnings", []),
+    }
+
 
 def _build_verdict(
     model: Dict,
-    calc: Dict,
+    calculation: Dict,
     artifact_calc: Dict,
     resonance: float,
     thresholds: Dict,
-    flat: Optional[Dict] = None,
+    flat: Dict,
 ) -> Dict:
-    """
-    Вердикт строится по РЕАЛЬНЫМ параметрам артефакта (artifact_calc),
-    а не по примеру из реестра (calc).
-    calc оставлен для обратной совместимости — используется только как fallback.
-    """
-    flat = flat or {}
-    # Используем artifact_calc как основной источник предупреждений
-    warn  = artifact_calc.get("warning_triggered", calc.get("warning_triggered", False))
-    warns = artifact_calc.get("warnings", [])
-    prog  = (model.get("programs") or ["target_system"])[0]
+    program = (model.get("programs") or ["target_system"])[0]
+    warnings: List[str] = []
 
-    stability_score   = thresholds.get("stability_score", 1.0)
-    survival_verified = thresholds.get("survival_verified", True)
-    math_unstable     = (stability_score < 0.5) or (not survival_verified)
+    if calculation.get("warning_triggered"):
+        warnings.append("Синтетический пример модели показал возможную нестабильность.")
+    if artifact_calc.get("warning_triggered"):
+        warnings.append("Параметры артефакта приближаются к критическому порогу.")
+    if thresholds.get("stability_score", 1.0) < 0.5:
+        warnings.append("Низкий stability_score артефакта.")
+    if not thresholds.get("survival_verified", True):
+        warnings.append("Выживаемость артефакта не подтверждена.")
+    if resonance < 0.65:
+        warnings.append("Низкая resonance — совпадение модели слабое.")
 
-    warns_str = "; ".join(warns) if warns else ""
-
-    if math_unstable and warn:
-        verdict_text = "⚠️ Осторожно — нестабилен"
-        dev_action   = (
-            f"НЕ применять автоматически: stability={stability_score:.3f}. "
-            f"Нарушения: {warns_str}. Проверить вручную в {prog}"
-        )
-        biz_rec = (
-            f"Система МАТЕМАТИЧЕСКИ НЕСТАБИЛЬНА (stability={stability_score:.3f}). "
-            f"Нарушения: {warns_str}. "
-            f"Результаты MGAP-матча ({resonance:.2f}) требуют пересмотра перед применением в {prog}."
-        )
-    elif math_unstable:
-        verdict_text = "⚠️ Математически нестабилен"
-        dev_action   = f"Применить с осторожностью: stability={stability_score:.3f}. Добавить мониторинг в {prog}"
-        biz_rec      = (
-            f"Артефакт резонирует с моделью «{model.get('name')}» (resonance={resonance:.2f}), "
-            f"однако симуляция даёт stability={stability_score:.3f}. Рекомендуется мониторинг."
-        )
-    elif warn:
+    if warnings:
         verdict_text = "Применимо как расширение"
-        dev_action   = (
-            f"Добавить mgap_stability_monitor() в {prog}. "
-            f"Нарушения параметров артефакта: {warns_str}"
-        )
-        biz_rec = (
-            f"Система НА ПОРОГЕ нестабильности. Нарушения: {warns_str}. "
-            f"Внедрить MGAP-монитор в {prog}. "
-            f"Снижение риска каскадных отказов: 15–25%."
-        )
+        summary = " ".join(warnings[:2])
     else:
         verdict_text = "Применимо, мониторинг"
-        dev_action   = f"Добавить пассивный мониторинг порогов в {prog}"
-        biz_rec      = f"Все параметры в норме. Мониторинг порогов полезен профилактически."
+        summary = (
+            f"Артефакт резонирует с моделью «{model.get('name', 'N/A')}" 
+            f"({model.get('logia', '—')}, resonance={resonance:.2f})."
+        )
 
     return {
         "verdict": verdict_text,
-        "artifact_checks": {
-            "K_ok":    artifact_calc.get("K_ok",   True),
-            "eta_ok":  artifact_calc.get("eta_ok", True),
-            "tau_ok":  artifact_calc.get("tau_ok", True),
-            "warnings": warns,
-        },
-        "math_stability": {
-            "stability_score":   stability_score,
-            "survival_verified": survival_verified,
-            "math_unstable":     math_unstable,
-        },
         "for_developer": {
-            "action":           dev_action,
-            "code_reference":   "adaptation.code_snippet",
+            "action":         f"Проверить адаптацию в {program} и настройки порогов",
+            "code_reference": "adaptation.code_snippet",
             "new_config_params": {
-                "eta_critical":   thresholds["eta_critical"],
-                "tau_robustness": thresholds["tau_robustness"],
+                "eta_critical":   thresholds.get("eta_critical"),
+                "tau_robustness": thresholds.get("tau_robustness"),
             },
+            "artifact_warnings": artifact_calc.get("warnings", []),
         },
         "for_business": {
-            "summary":        (
-                f"Артефакт резонирует с моделью «{model.get('name')}» "
-                f"({model.get('logia')}, resonance={resonance:.2f})."
+            "summary":        summary,
+            "blind_spot":     model.get("blind_spot_template", "—"),
+            "recommendation": (
+                "Рекомендуется усиленный мониторинг и проверка порогов."
+                if warnings else "Поддерживающий мониторинг полезен для устойчивости системы."
             ),
-            "blind_spot":     _format_blind_spot(
-                                  template=model.get("blind_spot_template") or "—",
-                                  eta_crit=thresholds["eta_critical"],
-                                  tau_crit=thresholds["tau_robustness"],
-                                  p_crit=model.get("critical_thresholds", {}).get("p_crit", 0.37),
-                                  p=model.get("example_data", {}).get("p_measured", 0.52),
-            ),
-            "recommendation": biz_rec,
-            "stability_score": stability_score,
-            "estimated_roi":  (
-                _compute_roi_estimate(
-                    flat=flat,
-                    model=model,
-                    thresholds=thresholds,
-                    stability_score=thresholds.get("stability_score", 0.5),
-                )
-                if not math_unstable else
-                "Сначала стабилизировать систему — ROI не определён"
-            ),
+            "stability_score": thresholds.get("stability_score", "—"),
+            "resonance":       round(resonance, 3),
         },
     }
 
 
-# ══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 # ОСНОВНОЙ КЛАСС
 # ══════════════════════════════════════════════════════════
 
 class MGAPMatcher:
-
-    def __init__(
-        self,
-        registry_path: str = "mgap_registry.json",
-        artifacts_dir: str = "artifacts",
-    ):
+    def __init__(self, registry_path: str = "mgap_registry.json", artifacts_dir: str = "artifacts"):
         self.registry_path = Path(registry_path)
         self.artifacts_dir = Path(artifacts_dir)
-        self.registry      = self._load_registry()
-        self.llm           = self._try_load_llm()
+        self.registry = self._load_registry()
+        self.llm = self._try_load_llm()
 
     def _load_registry(self) -> List[Dict]:
         if not self.registry_path.exists():
             logger.warning(f"Registry not found: {self.registry_path}")
             return []
-        data = json.loads(self.registry_path.read_text(encoding="utf-8"))
-        logger.info(
-            f"MGAPMatcher: loaded {len(data.get('models', []))} models "
-            f"({', '.join(data.get('math_types_covered', []))})"
-        )
-        return data.get("models", [])
+        try:
+            data = json.loads(self.registry_path.read_text(encoding="utf-8"))
+            models = data.get("models", [])
+            logger.info(
+                f"MGAPMatcher: loaded {len(models)} models "
+                f"({', '.join(data.get('math_types_covered', []))})"
+            )
+            return models
+        except Exception as e:
+            logger.error(f"Failed to load registry: {e}")
+            return []
 
     def _try_load_llm(self):
         """
@@ -1189,6 +1011,7 @@ class MGAPMatcher:
                 "средний" if resonance >= 0.65 else
                 "низкий"
             ),
+            "risk_multiplier":  artifact_calc.get("risk_multiplier", 1.0),
             "math_type_match": math_match,
             "artifact_summary": {
                 "domain":           artifact.get("data", {}).get("domain", "—"),
