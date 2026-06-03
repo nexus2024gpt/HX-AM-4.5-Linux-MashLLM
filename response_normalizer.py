@@ -16,6 +16,7 @@
 Возвращает is_recoverable=False только при полностью нечитаемом ответе
 v4.2 добавляет нормализацию four_d_matrix и stress_test.
 """
+#исправлена обработка falsey значений stress_test-полей.
 import json
 import logging
 import re
@@ -577,7 +578,15 @@ def normalize_stress_test(raw: Any, repairs: List[str]) -> Optional[Dict[str, An
 
     result = {}
 
-    stable_raw = raw.get("stress_dynamics_stable") or raw.get("dynamics_stable") or raw.get("stable")
+    if "stress_dynamics_stable" in raw:
+        stable_raw = raw["stress_dynamics_stable"]
+    elif "dynamics_stable" in raw:
+        stable_raw = raw["dynamics_stable"]
+    elif "stable" in raw:
+        stable_raw = raw["stable"]
+    else:
+        stable_raw = None
+
     if isinstance(stable_raw, bool):
         result["stress_dynamics_stable"] = stable_raw
     elif isinstance(stable_raw, str):
@@ -587,10 +596,18 @@ def normalize_stress_test(raw: Any, repairs: List[str]) -> Optional[Dict[str, An
         result["stress_dynamics_stable"] = True
         repairs.append("stress_test.stable: missing → True")
 
-    tau_raw = raw.get("tau_robustness") or raw.get("tau_max") or raw.get("robustness_tau")
+    tau_raw = None
+    for _k in ("tau_robustness", "tau_max", "robustness_tau"):
+        if _k in raw:
+            tau_raw = raw[_k]
+            break
     result["tau_robustness"] = _to_float_safe(tau_raw, 0.0, 100.0, 1.0)
 
-    eta_raw = raw.get("eta_critical") or raw.get("eta_max") or raw.get("critical_eta")
+    eta_raw = None
+    for _k in ("eta_critical", "eta_max", "critical_eta"):
+        if _k in raw:
+            eta_raw = raw[_k]
+            break
     result["eta_critical"] = _to_float_safe(eta_raw, 0.0, 2.0, 0.35)
 
     result["reasoning"] = str(raw.get("reasoning", raw.get("reason", "")) or "").strip()[:300]
@@ -696,6 +713,11 @@ def normalize_gen(raw_text: str) -> Tuple[dict, List[str], bool]:
 
 def normalize_ver(raw_text: str) -> Tuple[dict, List[str], bool]:
     """Normalize verifier LLM output."""
+    # ВРЕМЕННОЕ ЛОГИРОВАНИЕ: вывод сырого ответа верификатора
+    logger.error(f"RAW_VERIFIER_RESPONSE (first 2000 chars):\n{raw_text[:2000]}")
+    # Если ответ очень длинный, можно ограничить, но для диагностики полезно видеть начало
+    # Если нужно полный ответ: logger.error(f"FULL_RAW_VERIFIER:\n{raw_text}")
+    
     repairs: List[str] = []
 
     data, strategy = extract_json_multi(raw_text)

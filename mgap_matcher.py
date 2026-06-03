@@ -163,6 +163,108 @@ def _norm_math_type(t: str) -> str:
     return _MATH_TYPE_ALIASES.get(t.lower().strip(), t.lower().strip())
 
 
+def _format_blind_spot(
+    template: str,
+    eta_crit: float,
+    tau_crit: float,
+    p_crit: float = 0.37,
+    K_min: float = 0.0,
+    T_crit: float = 0.0,
+    p: float = 0.5,
+) -> str:
+    """
+    Форматирует blind_spot_template, подставляя актуальные пороги модели.
+    Поддерживает оба формата плейсхолдеров: {eta_max}/{tau_max} (старый)
+    и {eta_crit}/{tau_crit} (новый). Жёсткие числа в шаблоне остаются
+    как есть — функция только подставляет плейсхолдеры.
+    """
+    if not template:
+        return template
+    try:
+        return template.format(
+            # Новые плейсхолдеры
+            eta_crit=round(eta_crit, 3),
+            tau_crit=round(tau_crit, 3),
+            p_crit=round(p_crit, 3),
+            K_min=round(K_min, 3),
+            T_crit=round(T_crit, 3),
+            # Обратная совместимость со старыми плейсхолдерами
+            eta_max=round(eta_crit, 3),
+            tau_max=round(tau_crit, 3),
+            p=round(p, 3),
+        )
+    except (KeyError, IndexError):
+        # Если в шаблоне неизвестный плейсхолдер — вернуть как есть
+        return template
+
+
+def _compute_roi_estimate(
+    flat: Dict,
+    model: Dict,
+    thresholds: Dict,
+    stability_score: float = 0.5,
+) -> str:
+    """
+    Вычисляет реалистичную оценку снижения риска на основе запасов
+    до критических порогов конкретной модели.
+    """
+    ct = model.get("critical_thresholds", {})
+    eta_c = float(thresholds.get("eta_critical", ct.get("eta_max", 0.5)))
+    tau_c = float(thresholds.get("tau_robustness", ct.get("tau_max", 5.0)))
+    K_min = float(ct.get("K_min", 0.0))
+
+    eta = float(flat.get("eta", 0.2))
+    tau = float(flat.get("tau", 0.5))
+    K = float(flat.get("K", 0.35))
+
+    margins: List[float] = []
+
+    if eta_c > 0:
+        margins.append(max(0.0, (eta_c - eta) / eta_c))
+
+    if tau_c > 0:
+        margins.append(max(0.0, (tau_c - tau) / tau_c))
+
+    if K_min > 0:
+        margins.append(max(0.0, (K - K_min) / max(K_min, 1e-6)))
+
+    if _norm_math_type(model.get("math_type", "")) == "percolation":
+        p_crit = float(ct.get("p_crit", 0.37))
+        p = float(flat.get("p", 0.5))
+        if p_crit > 0:
+            margins.append(max(0.0, (p - p_crit) / max(1 - p_crit, 1e-6)))
+
+    if not margins:
+        return "Снижение риска каскадных отказов на 10–20%"
+
+    min_margin = min(margins)
+
+    if stability_score >= 0.9:
+        base = 0.30
+    elif stability_score >= 0.7:
+        base = 0.25
+    elif stability_score >= 0.5:
+        base = 0.20
+    else:
+        base = 0.10
+
+    potential = min_margin * base
+    pct = max(5, min(round(potential * 100), 30))
+
+    if pct <= 10:
+        low, high = 5, 10
+    elif pct <= 15:
+        low, high = 10, 15
+    elif pct <= 20:
+        low, high = 15, 20
+    elif pct <= 25:
+        low, high = 20, 25
+    else:
+        low, high = 25, 30
+
+    return f"Снижение риска каскадных отказов на {low}–{high}%"
+
+
 # ══════════════════════════════════════════════════════════
 # ИЗВЛЕЧЕНИЕ ПАРАМЕТРОВ
 # ══════════════════════════════════════════════════════════
@@ -796,12 +898,14 @@ def _build_verdict(
     artifact_calc: Dict,
     resonance: float,
     thresholds: Dict,
+    flat: Optional[Dict] = None,
 ) -> Dict:
     """
     Вердикт строится по РЕАЛЬНЫМ параметрам артефакта (artifact_calc),
     а не по примеру из реестра (calc).
     calc оставлен для обратной совместимости — используется только как fallback.
     """
+    flat = flat or {}
     # Используем artifact_calc как основной источник предупреждений
     warn  = artifact_calc.get("warning_triggered", calc.get("warning_triggered", False))
     warns = artifact_calc.get("warnings", [])
@@ -873,16 +977,22 @@ def _build_verdict(
                 f"Артефакт резонирует с моделью «{model.get('name')}» "
                 f"({model.get('logia')}, resonance={resonance:.2f})."
             ),
-            "blind_spot":     (model.get("blind_spot_template") or "—").format(
-                                  eta_max=thresholds["eta_critical"],
-                                  tau_max=thresholds["tau_robustness"],
+            "blind_spot":     _format_blind_spot(
+                                  template=model.get("blind_spot_template") or "—",
+                                  eta_crit=thresholds["eta_critical"],
+                                  tau_crit=thresholds["tau_robustness"],
                                   p_crit=model.get("critical_thresholds", {}).get("p_crit", 0.37),
                                   p=model.get("example_data", {}).get("p_measured", 0.52),
             ),
             "recommendation": biz_rec,
             "stability_score": stability_score,
             "estimated_roi":  (
-                "Снижение риска каскадных отказов на 15–25%"
+                _compute_roi_estimate(
+                    flat=flat,
+                    model=model,
+                    thresholds=thresholds,
+                    stability_score=thresholds.get("stability_score", 0.5),
+                )
                 if not math_unstable else
                 "Сначала стабилизировать систему — ROI не определён"
             ),
@@ -1035,20 +1145,28 @@ class MGAPMatcher:
         math_match  = _norm_math_type(model.get("math_type", "")) == art_math
         translation = self._translate_params(flat, thresholds, model)
         ct_for_blind = model.get("critical_thresholds", {})
-        raw_blind   = (model.get("blind_spot_template") or "").format(
-            eta_max=thresholds["eta_critical"],
-            tau_max=thresholds["tau_robustness"],
-            p_crit=ct_for_blind.get("p_crit", 0.37),
+        # Подставляем пороги конкретной модели (не жёсткие числа из шаблона)
+        _eta_c  = thresholds["eta_critical"]      # из stress_test артефакта или ct модели
+        _tau_c  = thresholds["tau_robustness"]
+        _p_crit = ct_for_blind.get("p_crit", 0.37)
+        _K_min  = ct_for_blind.get("K_min", 0.0)
+        _T_crit = ct_for_blind.get("T_crit", _K_min if _K_min else 1.0)
+
+        raw_blind = _format_blind_spot(
+            template=model.get("blind_spot_template") or "",
+            eta_crit=_eta_c,
+            tau_crit=_tau_c,
+            p_crit=_p_crit,
+            K_min=_K_min,
+            T_crit=_T_crit,
             p=flat.get("p", 0.5),
-            K_min=ct_for_blind.get("K_min", 0.0),
-            T_crit=ct_for_blind.get("T_crit", 0.0),
         )
         # blind_spot через LLM (Groq/Mash first)
         blind_spot   = self._improve_blind_spot(raw_blind, model)
         code_snippet = _generate_code(model, thresholds, flat)
         calculation  = _calculate_example(model, thresholds)
         artifact_calc    = _calculate_with_artifact_params(model, flat, thresholds)
-        verdict      = _build_verdict(model, calculation, artifact_calc, resonance, thresholds)
+        verdict      = _build_verdict(model, calculation, artifact_calc, resonance, thresholds, flat)
 
         # v4.5.1: опциональный LLM-анализ совместимости
         llm_analysis = self._llm_analyze_match(artifact, model, resonance, flat, thresholds)

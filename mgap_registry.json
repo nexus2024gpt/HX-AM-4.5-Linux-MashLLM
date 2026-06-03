@@ -101,7 +101,7 @@
           "typical_values": "1.0–20.0"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.409 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -195,7 +195,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max={tau_crit} и уровень шума η_max={eta_crit}: при превышении система теряет синхронизацию.",
       "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
         "type": "kuramoto",
@@ -289,7 +289,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > {eta_crit} и τ > {tau_crit} занижается эффективность на 20–50%.",
       "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
       "example_data": {
         "type": "graph_invariant",
@@ -382,7 +382,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.231: возможно потеря устойчивости.",
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max={tau_crit} и усиление K_min={K_min}: возможно потеря устойчивости.",
       "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
       "example_data": {
         "type": "delay",
@@ -477,7 +477,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные расчёты не отслеживают критическую температуру T_crit=0.617 и уровень шума η_max=0.4: при превышении система переходит в неупорядоченную фазу.",
+      "blind_spot_template": "Стандартные расчёты не отслеживают критическую температуру T_crit={T_crit} и уровень шума η_max={eta_crit}: при превышении система переходит в неупорядоченную фазу.",
       "math_adaptation_formula": "phase_order = tanh((K - eta * T) / max(T, 0.01)); stability = phase_order > 0.3",
       "example_data": {
         "type": "ising",
@@ -570,7 +570,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > {eta_crit} и τ > {tau_crit} занижается эффективность на 20–50%.",
       "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
       "example_data": {
         "type": "graph_invariant",
@@ -663,7 +663,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max=0.5 и период обновления τ_max=7.0: при превышении стационарное сосуществование разрушается.",
+      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max={eta_crit} и период обновления τ_max={tau_crit}: при превышении стационарное сосуществование разрушается.",
       "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta/eta_crit -1)*(K/K_c -1)) if K > K_c else 0",
       "example_data": {
         "type": "lotka_volterra",
@@ -763,7 +763,7 @@
           "typical_values": "1.0–21.0 дней"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.572 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -857,7 +857,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max={tau_crit} и уровень шума η_max={eta_crit}: при превышении система теряет синхронизацию.",
       "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
         "type": "kuramoto",
@@ -951,7 +951,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > {eta_crit} и τ > {tau_crit} занижается эффективность на 20–50%.",
       "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
       "example_data": {
         "type": "graph_invariant",
@@ -1051,7 +1051,7 @@
           "typical_values": "1.0–50.0 лет"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.435 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -1152,7 +1152,7 @@
           "typical_values": "1.0–20.0"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.597 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -1246,7 +1246,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max={tau_crit} и уровень шума η_max={eta_crit}: при превышении система теряет синхронизацию.",
       "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
         "type": "kuramoto",
@@ -1347,7 +1347,7 @@
           "typical_values": "1.0–168.0 часов"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.6 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -1441,7 +1441,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.323: возможно потеря устойчивости.",
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max={tau_crit} и усиление K_min={K_min}: возможно потеря устойчивости.",
       "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
       "example_data": {
         "type": "delay",
@@ -1535,7 +1535,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > {eta_crit} и τ > {tau_crit} занижается эффективность на 20–50%.",
       "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
       "example_data": {
         "type": "graph_invariant",
@@ -1636,7 +1636,7 @@
           "typical_values": "0.1–48.0 часов"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.412 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -1730,7 +1730,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max={tau_crit} и уровень шума η_max={eta_crit}: при превышении система теряет синхронизацию.",
       "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
         "type": "kuramoto",
@@ -1830,7 +1830,7 @@
           "typical_values": "1.0–15.0 усл. ед."
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.535 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -1925,7 +1925,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.509 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
@@ -2019,7 +2019,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max={tau_crit} и уровень шума η_max={eta_crit}: при превышении система теряет синхронизацию.",
       "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
         "type": "kuramoto",
@@ -2114,7 +2114,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные расчёты не отслеживают критическую температуру T_crit=0.713 и уровень шума η_max=0.4: при превышении система переходит в неупорядоченную фазу.",
+      "blind_spot_template": "Стандартные расчёты не отслеживают критическую температуру T_crit={T_crit} и уровень шума η_max={eta_crit}: при превышении система переходит в неупорядоченную фазу.",
       "math_adaptation_formula": "phase_order = tanh((K - eta * T) / max(T, 0.01)); stability = phase_order > 0.3",
       "example_data": {
         "type": "ising",
@@ -2207,7 +2207,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.302: возможно потеря устойчивости.",
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max={tau_crit} и усиление K_min={K_min}: возможно потеря устойчивости.",
       "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
       "example_data": {
         "type": "delay",
@@ -2301,7 +2301,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max=0.5 и период обновления τ_max=7.0: при превышении стационарное сосуществование разрушается.",
+      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max={eta_crit} и период обновления τ_max={tau_crit}: при превышении стационарное сосуществование разрушается.",
       "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta/eta_crit -1)*(K/K_c -1)) if K > K_c else 0",
       "example_data": {
         "type": "lotka_volterra",
@@ -2394,7 +2394,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max=5.5 и усиление K_min=0.389: возможно потеря устойчивости.",
+      "blind_spot_template": "Стандартные модели не учитывают критическую задержку τ_max={tau_crit} и усиление K_min={K_min}: возможно потеря устойчивости.",
       "math_adaptation_formula": "stability_margin = min(1 - eta/eta_crit, 1 - tau/tau_crit)",
       "example_data": {
         "type": "delay",
@@ -2488,7 +2488,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > {eta_crit} и τ > {tau_crit} занижается эффективность на 20–50%.",
       "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
       "example_data": {
         "type": "graph_invariant",
@@ -2581,7 +2581,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max=0.5 и период обновления τ_max=7.0: при превышении стационарное сосуществование разрушается.",
+      "blind_spot_template": "Стандартные модели Лотки-Вольтерра не учитывают критическую изменчивость ресурсов η_max={eta_crit} и период обновления τ_max={tau_crit}: при превышении стационарное сосуществование разрушается.",
       "math_adaptation_formula": "coexistence_stable = (K * omega_i < K_c) and (eta < eta_crit); instability_risk = max(0, (eta/eta_crit -1)*(K/K_c -1)) if K > K_c else 0",
       "example_data": {
         "type": "lotka_volterra",
@@ -2674,7 +2674,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > 0.5 и τ > 4.5 занижается эффективность на 20–50%.",
+      "blind_spot_template": "Стандартные модели не учитывают нелинейное взаимодействие: при η > {eta_crit} и τ > {tau_crit} занижается эффективность на 20–50%.",
       "math_adaptation_formula": "multiplier = max(1.0, (eta / eta_crit) * (tau / tau_crit)); new_buffer = old_buffer * multiplier",
       "example_data": {
         "type": "graph_invariant",
@@ -2767,7 +2767,7 @@
           "typical_values": "0.05–0.5"
         }
       },
-      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max=2.3 и уровень шума η_max=0.38: при превышении система теряет синхронизацию.",
+      "blind_spot_template": "Стандартные алгоритмы не отслеживают критическую задержку τ_max={tau_crit} и уровень шума η_max={eta_crit}: при превышении система теряет синхронизацию.",
       "math_adaptation_formula": "stability_warning = (K < K_c) or (eta > eta_crit) or (tau > tau_crit)",
       "example_data": {
         "type": "kuramoto",
@@ -2863,7 +2863,7 @@
           "typical_values": "0.1–0.6"
         }
       },
-      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit=0.424 и неоднородность η_max=0.5: каскадные переходы не прогнозируются.",
+      "blind_spot_template": "Стандартные модели не учитывают порог перколяции p_crit={p_crit} и неоднородность η_max={eta_crit}: каскадные переходы не прогнозируются.",
       "math_adaptation_formula": "cascade_risk = max(0, (p - p_crit) / (1 - p_crit)) if p > p_crit else 0; warning = cascade_risk > 0.3",
       "example_data": {
         "type": "percolation",
