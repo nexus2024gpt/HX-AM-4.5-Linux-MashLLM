@@ -1027,17 +1027,16 @@ function renderMgapMatch(m) {
             </div>
           </div>` : '';
 
-        const blindSpot = m.blind_spot || {};
-        const blindBlock = blindSpot.severity ? `
-          <div class="mgap-match-card" style="margin-bottom:.75rem;border-left:3px solid ${blindSpot.severity==='critical'?'#ef4444':blindSpot.severity==='warning'?'#f59e0b':'#fbbf24'}">
+        const blindSpotText = (typeof m.blind_spot === 'string')
+          ? m.blind_spot
+          : (m.blind_spot?.description || '');
+        const blindBlock = blindSpotText && blindSpotText !== '—' ? `
+          <div class="mgap-match-card" style="margin-bottom:.75rem;border-left:3px solid #fbbf24">
             <div class="mgap-match-card-head">
               <span class="mgap-match-card-title">🛡️ Слепая зона</span>
-              <span style="margin-left:auto;font-size:.7rem;font-weight:700;color:${blindSpot.severity==='critical'?'#ef4444':blindSpot.severity==='warning'?'#f59e0b':'#fbbf24'}">${blindSpot.severity}</span>
             </div>
             <div class="mgap-match-card-body" style="padding:.5rem .75rem">
-              <div style="font-size:.78rem;color:#e2e8f0;margin-bottom:.4rem">${escHtml(blindSpot.description||'')}</div>
-              ${blindSpot.affected_params ? `<div style="font-size:.7rem;color:#64748b;margin-bottom:.3rem"><b>Затронутые параметры:</b></div><div style="display:flex;gap:.3rem;flex-wrap:wrap">${(blindSpot.affected_params||[]).map(p=>`<span style="background:#1e293b;border:1px solid #475569;color:#cbd5e1;border-radius:4px;padding:.1rem .35rem;font-size:.7rem">${escHtml(p)}</span>`).join('')}</div>` : ''}
-              ${blindSpot.mitigation ? `<div style="margin-top:.4rem;padding:.4rem;background:#0f172a;border-radius:6px;font-size:.75rem;color:#fbbf24"><b>Как избежать:</b><br>${escHtml(blindSpot.mitigation)}</div>` : ''}
+              <div style="font-size:.78rem;color:#e2e8f0;line-height:1.5">${escHtml(blindSpotText)}</div>
             </div>
           </div>` : '';
 
@@ -1052,7 +1051,10 @@ function renderMgapMatch(m) {
           <div class="mgap-code-block">${escHtml(m.adaptation?.code_snippet || m.code_snippet || '— код недоступен')}</div>
         </div>
       </div>
-      ${m.calculation_summary ? `<div style="background:#0f172a;border-radius:8px;padding:.5rem .85rem;margin-bottom:.75rem;font-size:.75rem;color:#94a3b8;border-left:3px solid #334155"><span style="font-size:.62rem;color:#475569;text-transform:uppercase;letter-spacing:.05em">Итог расчёта</span><br>${escHtml(m.calculation_summary)}</div>` : ''}
+      ${m.calculation_summary ? `<div style="background:#0f172a;border-radius:8px;padding:.5rem .85rem;margin-bottom:.75rem;font-size:.75rem;color:#94a3b8;border-left:3px solid #334155">
+        <span style="font-size:.62rem;color:#475569;text-transform:uppercase;letter-spacing:.05em">Итог расчёта</span><br>
+        ${escHtml(typeof m.calculation_summary === 'string' ? m.calculation_summary : JSON.stringify(m.calculation_summary))}
+      </div>` : ''}
       ${m.llm_analysis ? `<div style="background:#6366f111;border-radius:8px;padding:.6rem .85rem;margin-bottom:.75rem;border:1px solid #6366f133"><div style="font-size:.62rem;color:#6366f1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem">🤖 LLM-анализ (${escHtml(m.llm_analysis._model||'')})</div><div style="font-size:.78rem;color:#e2e8f0;margin-bottom:.2rem"><b>Применимо:</b> ${escHtml(m.llm_analysis.why_applicable||'')}</div><div style="font-size:.75rem;color:#f87171;margin-bottom:.2rem"><b>Риск:</b> ${escHtml(m.llm_analysis.main_risk||'')}</div><div style="font-size:.75rem;color:#4ade80"><b>Действие:</b> ${escHtml(m.llm_analysis.dev_action||'')}</div></div>` : ''}
       <div class="mgap-verdict-dev">
         <div class="mgap-verdict-label">👨‍💻 Для разработчика</div>
@@ -1062,14 +1064,15 @@ function renderMgapMatch(m) {
       <div class="mgap-verdict-biz">
         <div class="mgap-verdict-label">💼 Для бизнеса</div>
         <div style="color:#e2e8f0">${escHtml(vBiz.recommendation||'—')}</div>
-        <div style="font-size:.72rem;margin-top:.35rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
-          <span style="color:${(vBiz.estimated_roi||'').includes('стабилизировать')||
-                               (vBiz.estimated_roi||'').includes('за критическим') ? '#f59e0b' :
-                               (vBiz.estimated_roi||'').includes('мониторинг') ? '#94a3b8' : '#4ade80'}">
-            ${escHtml(vBiz.estimated_roi||'')}
-          </span>
-          ${riskMult > 1.0 ? `<span class="mgap-risk-mult-badge mgap-risk-high" style="font-size:.65rem">×${riskMult.toFixed(2)}</span>` : ''}
-        </div>
+        ${vBiz.estimated_roi ? `<div style="font-size:.72rem;margin-top:.35rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <span style="color:${
+            (vBiz.estimated_roi||'').includes('стабилизировать') ||
+            (vBiz.estimated_roi||'').includes('за критическим')  ? '#f59e0b' :
+            (vBiz.estimated_roi||'').includes('мониторинг')       ? '#94a3b8' :
+            (vBiz.estimated_roi||'').includes('Недостаточно')     ? '#475569' : '#4ade80'
+          }">📊 ${escHtml(vBiz.estimated_roi)}</span>
+          ${riskMult > 1.0 ? `<span class="mgap-risk-mult-badge mgap-risk-high">⚡ ×${riskMult.toFixed(2)}</span>` : ''}
+        </div>` : ''}
       </div>
     </div>
   </div>`;

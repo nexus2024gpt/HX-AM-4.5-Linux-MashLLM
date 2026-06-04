@@ -755,15 +755,28 @@ def _compute_roi_estimate(
     return f"Снижение риска каскадных отказов на {lo}–{hi}%{mult_str}"
 
 
-def _build_calculation_summary(calculation: Dict, artifact_calc: Dict, thresholds: Dict) -> Dict:
-    return {
-        "example_type":      calculation.get("example_type", "unknown"),
-        "warning_triggered": calculation.get("warning_triggered", False),
-        "risk_multiplier":  artifact_calc.get("risk_multiplier", 1.0),
-        "stability_score":  thresholds.get("stability_score", 0.0),
-        "artifact_warnings": artifact_calc.get("warnings", []),
-        "example_warnings":  calculation.get("warnings", []),
-    }
+def _build_calculation_summary(calculation: Dict, artifact_calc: Dict, thresholds: Dict) -> str:
+    """
+    Возвращает строку-резюме для UI (поле calculation_summary).
+    UI ожидает строку, не dict.
+    """
+    risk_mult = artifact_calc.get("risk_multiplier", 1.0)
+    stable    = artifact_calc.get("stable", True)
+    warns     = artifact_calc.get("warnings", [])
+    sc        = thresholds.get("stability_score", 0.0)
+
+    if not stable and warns:
+        short_warns = "; ".join(warns[:2])
+        return (
+            f"⚠ Реальные параметры за порогом: {short_warns}. "
+            f"Множитель риска ×{risk_mult:.2f}. "
+            f"stability={sc:.2f}"
+        )
+    return (
+        f"✓ Параметры артефакта в норме. "
+        f"Множитель риска ×{risk_mult:.2f}. "
+        f"stability={sc:.2f}"
+    )
 
 
 def _build_verdict(
@@ -776,6 +789,19 @@ def _build_verdict(
 ) -> Dict:
     program = (model.get("programs") or ["target_system"])[0]
     warnings: List[str] = []
+
+    flat = flat or {}
+    # Форматируем blind_spot с реальными порогами модели
+    ct_bd = model.get("critical_thresholds", {})
+    blind_spot_formatted = _format_blind_spot(
+        template  = model.get("blind_spot_template") or "—",
+        eta_crit  = thresholds.get("eta_critical", ct_bd.get("eta_max", 0.5)),
+        tau_crit  = thresholds.get("tau_robustness", ct_bd.get("tau_max", 5.0)),
+        p_crit    = ct_bd.get("p_crit", 0.37),
+        K_min     = ct_bd.get("K_min", 0.0),
+        T_crit    = ct_bd.get("T_crit", 0.0),
+        p         = flat.get("p", 0.5),
+    )
 
     if calculation.get("warning_triggered"):
         warnings.append("Синтетический пример модели показал возможную нестабильность.")
@@ -798,6 +824,11 @@ def _build_verdict(
             f"({model.get('logia', '—')}, resonance={resonance:.2f})."
         )
 
+    biz_rec = (
+        "Рекомендуется усиленный мониторинг и проверка порогов."
+        if warnings else "Поддерживающий мониторинг полезен для устойчивости системы."
+    )
+
     return {
         "verdict": verdict_text,
         "for_developer": {
@@ -810,14 +841,19 @@ def _build_verdict(
             "artifact_warnings": artifact_calc.get("warnings", []),
         },
         "for_business": {
-            "summary":        summary,
-            "blind_spot":     model.get("blind_spot_template", "—"),
-            "recommendation": (
-                "Рекомендуется усиленный мониторинг и проверка порогов."
-                if warnings else "Поддерживающий мониторинг полезен для устойчивости системы."
+            "summary":         (
+                f"Артефакт резонирует с моделью «{model.get('name')}» "
+                f"({model.get('logia')}, resonance={resonance:.2f})."
             ),
+            "blind_spot":      blind_spot_formatted,
+            "recommendation":  biz_rec,
             "stability_score": thresholds.get("stability_score", "—"),
-            "resonance":       round(resonance, 3),
+            "estimated_roi":   _compute_roi_estimate(
+                                   artifact_calc=artifact_calc,
+                                   model=model,
+                                   thresholds=thresholds,
+                                   stability_score=thresholds.get("stability_score", 0.5),
+                               ),
         },
     }
 
