@@ -76,22 +76,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.516,
-        "p_crit": 0.409,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.409
-          }
-        }
+        "p_crit": 0.409
       },
       "translation_map": {
         "p": {
@@ -108,7 +93,8 @@
           "industry_term": "Неоднородность",
           "description": "Коэффициент вариации свойств",
           "typical_values": "0.1–0.6"
-        },
+        }
+        ,
         "tau": {
           "industry_term": "Характерное время накопления",
           "description": "Время между событиями или накоплением критической энергии",
@@ -125,19 +111,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Фазовые переходы и критические явления — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "abstract_time",
-        "tau_physical_range": [
-          0.1,
-          20.0
-        ],
-        "eta_unit": "noise_fraction",
-        "K_unit": "coupling_constant",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Фазовые переходы и критические явления — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M02",
@@ -202,16 +176,7 @@
       "critical_thresholds": {
         "eta_max": 0.38,
         "tau_max": 2.3,
-        "K_min": 0.666,
-        "_dynamic": {
-          "eta_max": {
-            "formula": "K_c * 0.6",
-            "required_inputs": [
-              "K_c"
-            ],
-            "fallback": 0.38
-          }
-        }
+        "K_min": 0.666
       },
       "translation_map": {
         "tau": {
@@ -240,19 +205,7 @@
         "delay_tau_hours": 1.8,
         "route_count": 120
       },
-      "description": "Синхронизация осцилляторов — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "abstract_time",
-        "tau_physical_range": [
-          0.1,
-          20.0
-        ],
-        "eta_unit": "noise_fraction",
-        "K_unit": "coupling_constant",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Синхронизация осцилляторов — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M03",
@@ -317,14 +270,7 @@
       "critical_thresholds": {
         "eta_max": 0.5,
         "tau_max": 4.5,
-        "K_min": 0.478,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "required_inputs": ["mean_k"],
-            "fallback": 0.129
-          }
-        }
+        "K_min": 0.478
       },
       "translation_map": {
         "tau": {
@@ -352,19 +298,7 @@
         "current_lead_time": 7.0,
         "old_safety_stock_coef": 0.2
       },
-      "description": "Гравитационная динамика и стабильность — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "abstract_time",
-        "tau_physical_range": [
-          0.1,
-          20.0
-        ],
-        "eta_unit": "noise_fraction",
-        "K_unit": "coupling_constant",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Гравитационная динамика и стабильность — модель для анализа Физика в области Астрономия. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M04",
@@ -458,19 +392,7 @@
         "delay_tau": 4.1,
         "description": "Лаг в единицах времени"
       },
-      "description": "Реакционно-диффузионные системы — модель для анализа Химия в области Материаловедение. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "reaction_times",
-        "tau_physical_range": [
-          0.05,
-          10.0
-        ],
-        "eta_unit": "concentration_variance",
-        "K_unit": "rate_constant_ratio",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Реакционно-диффузионные системы — модель для анализа Химия в области Материаловедение. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M05",
@@ -536,13 +458,7 @@
         "eta_max": 0.4,
         "tau_max": 2.0,
         "K_min": 0.617,
-        "_dynamic": {
-          "T_crit": {
-            "formula": "K",
-            "required_inputs": ["K"],
-            "fallback": 0.617
-          }
-        }
+        "T_crit": 0.617
       },
       "translation_map": {
         "T": {
@@ -570,19 +486,7 @@
         "noise_eta": 0.15,
         "lattice_size": 64
       },
-      "description": "Кристаллизация и фазовые переходы — модель для анализа Химия в области Материаловедение. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "reaction_times",
-        "tau_physical_range": [
-          0.05,
-          10.0
-        ],
-        "eta_unit": "concentration_variance",
-        "K_unit": "rate_constant_ratio",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Кристаллизация и фазовые переходы — модель для анализа Химия в области Материаловедение. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M06",
@@ -647,14 +551,7 @@
       "critical_thresholds": {
         "eta_max": 0.5,
         "tau_max": 4.5,
-        "K_min": 0.365,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "required_inputs": ["mean_k"],
-            "fallback": 0.129
-          }
-        }
+        "K_min": 0.365
       },
       "translation_map": {
         "tau": {
@@ -682,19 +579,7 @@
         "current_lead_time": 7.0,
         "old_safety_stock_coef": 0.2
       },
-      "description": "Каталитические сети — модель для анализа Химия в области Химия. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "reaction_times",
-        "tau_physical_range": [
-          0.05,
-          10.0
-        ],
-        "eta_unit": "concentration_variance",
-        "K_unit": "rate_constant_ratio",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Каталитические сети — модель для анализа Химия в области Химия. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M07",
@@ -787,19 +672,7 @@
         "interaction": 0.5,
         "noise_eta": 0.2
       },
-      "description": "Популяционная динамика — модель для анализа Биология в области Медицина. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "generations",
-        "tau_physical_range": [
-          0.5,
-          50.0
-        ],
-        "eta_unit": "fitness_noise",
-        "K_unit": "interaction_strength",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Популяционная динамика — модель для анализа Биология в области Медицина. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M08",
@@ -865,22 +738,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.463,
-        "p_crit": 0.572,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.572
-          }
-        }
+        "p_crit": 0.572
       },
       "translation_map": {
         "p": {
@@ -897,7 +755,8 @@
           "industry_term": "Неоднородность",
           "description": "Коэффициент вариации свойств",
           "typical_values": "0.1–0.6"
-        },
+        }
+        ,
         "tau": {
           "industry_term": "Инкубационный/латентный период",
           "description": "Среднее время от заражения до появления симптомов или передачи",
@@ -914,19 +773,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Эпидемическое распространение — модель для анализа Биология в области Эпидемиология. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "generations",
-        "tau_physical_range": [
-          0.5,
-          50.0
-        ],
-        "eta_unit": "fitness_noise",
-        "K_unit": "interaction_strength",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Эпидемическое распространение — модель для анализа Биология в области Эпидемиология. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M09",
@@ -991,16 +838,7 @@
       "critical_thresholds": {
         "eta_max": 0.38,
         "tau_max": 2.3,
-        "K_min": 0.774,
-        "_dynamic": {
-          "eta_max": {
-            "formula": "K_c * 0.6",
-            "required_inputs": [
-              "K_c"
-            ],
-            "fallback": 0.38
-          }
-        }
+        "K_min": 0.774
       },
       "translation_map": {
         "tau": {
@@ -1029,19 +867,7 @@
         "delay_tau_hours": 1.8,
         "route_count": 120
       },
-      "description": "Нейронная синхронизация — модель для анализа Биология в области Нейронауки. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "generations",
-        "tau_physical_range": [
-          0.5,
-          50.0
-        ],
-        "eta_unit": "fitness_noise",
-        "K_unit": "interaction_strength",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Нейронная синхронизация — модель для анализа Биология в области Нейронауки. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M10",
@@ -1106,14 +932,7 @@
       "critical_thresholds": {
         "eta_max": 0.5,
         "tau_max": 4.5,
-        "K_min": 0.431,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "required_inputs": ["mean_k"],
-            "fallback": 0.129
-          }
-        }
+        "K_min": 0.431
       },
       "translation_map": {
         "tau": {
@@ -1141,19 +960,7 @@
         "current_lead_time": 7.0,
         "old_safety_stock_coef": 0.2
       },
-      "description": "Потоки энергии и вещества — модель для анализа Экология в области Экосистемы. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "years",
-        "tau_physical_range": [
-          0.5,
-          100.0
-        ],
-        "eta_unit": "environmental_variance",
-        "K_unit": "competition_coefficient",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Потоки энергии и вещества — модель для анализа Экология в области Экосистемы. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M11",
@@ -1219,22 +1026,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.442,
-        "p_crit": 0.435,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.435
-          }
-        }
+        "p_crit": 0.435
       },
       "translation_map": {
         "p": {
@@ -1251,7 +1043,8 @@
           "industry_term": "Неоднородность",
           "description": "Коэффициент вариации свойств",
           "typical_values": "0.1–0.6"
-        },
+        }
+        ,
         "tau": {
           "industry_term": "Время отклика экосистемы",
           "description": "Характерное время восстановления или перестройки экосистемы после нарушения",
@@ -1268,19 +1061,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Каскады нарушений — модель для анализа Экология в области Климат. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "years",
-        "tau_physical_range": [
-          0.5,
-          100.0
-        ],
-        "eta_unit": "environmental_variance",
-        "K_unit": "competition_coefficient",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Каскады нарушений — модель для анализа Экология в области Климат. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M12",
@@ -1346,22 +1127,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.548,
-        "p_crit": 0.597,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.597
-          }
-        }
+        "p_crit": 0.597
       },
       "translation_map": {
         "p": {
@@ -1378,7 +1144,8 @@
           "industry_term": "Неоднородность",
           "description": "Коэффициент вариации свойств",
           "typical_values": "0.1–0.6"
-        },
+        }
+        ,
         "tau": {
           "industry_term": "Характерное время накопления",
           "description": "Время между событиями или накоплением критической энергии",
@@ -1395,19 +1162,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Тектонические и геологические каскады — модель для анализа Геонауки в области Геология. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1000.0,
-        "t0_unit": "years",
-        "tau_physical_range": [
-          100.0,
-          20000.0
-        ],
-        "eta_unit": "stress_heterogeneity",
-        "K_unit": "tectonic_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Тектонические и геологические каскады — модель для анализа Геонауки в области Геология. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M13",
@@ -1472,16 +1227,7 @@
       "critical_thresholds": {
         "eta_max": 0.38,
         "tau_max": 2.3,
-        "K_min": 0.595,
-        "_dynamic": {
-          "eta_max": {
-            "formula": "K_c * 0.6",
-            "required_inputs": [
-              "K_c"
-            ],
-            "fallback": 0.38
-          }
-        }
+        "K_min": 0.595
       },
       "translation_map": {
         "tau": {
@@ -1510,19 +1256,7 @@
         "delay_tau_hours": 1.8,
         "route_count": 120
       },
-      "description": "Глобальная циркуляция — модель для анализа Океанография в области Климат. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 10.0,
-        "t0_unit": "years",
-        "tau_physical_range": [
-          1.0,
-          500.0
-        ],
-        "eta_unit": "current_variance",
-        "K_unit": "circulation_strength",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Глобальная циркуляция — модель для анализа Океанография в области Климат. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M14",
@@ -1588,22 +1322,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.507,
-        "p_crit": 0.6,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.6
-          }
-        }
+        "p_crit": 0.6
       },
       "translation_map": {
         "p": {
@@ -1620,7 +1339,8 @@
           "industry_term": "Неоднородность",
           "description": "Коэффициент вариации свойств",
           "typical_values": "0.1–0.6"
-        },
+        }
+        ,
         "tau": {
           "industry_term": "Время вирусного распространения",
           "description": "Характерное время удвоения охвата информационного каскада",
@@ -1637,19 +1357,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Системные финансовые риски — модель для анализа Экономика в области Финансы. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 0.25,
-        "t0_unit": "quarters",
-        "tau_physical_range": [
-          0.25,
-          20.0
-        ],
-        "eta_unit": "volatility_index",
-        "K_unit": "market_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Системные финансовые риски — модель для анализа Экономика в области Финансы. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M15",
@@ -1743,19 +1451,7 @@
         "delay_tau": 4.1,
         "description": "Лаг в единицах времени"
       },
-      "description": "Экономические циклы — модель для анализа Экономика в области Макроэкономика. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 0.25,
-        "t0_unit": "quarters",
-        "tau_physical_range": [
-          0.25,
-          20.0
-        ],
-        "eta_unit": "volatility_index",
-        "K_unit": "market_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Экономические циклы — модель для анализа Экономика в области Макроэкономика. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M16",
@@ -1820,14 +1516,7 @@
       "critical_thresholds": {
         "eta_max": 0.5,
         "tau_max": 4.5,
-        "K_min": 0.381,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "required_inputs": ["mean_k"],
-            "fallback": 0.129
-          }
-        }
+        "K_min": 0.381
       },
       "translation_map": {
         "tau": {
@@ -1855,19 +1544,7 @@
         "current_lead_time": 7.0,
         "old_safety_stock_coef": 0.2
       },
-      "description": "Управление запасами — модель для анализа Логистика в области Цепочки поставок. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "days",
-        "tau_physical_range": [
-          0.5,
-          90.0
-        ],
-        "eta_unit": "demand_cv",
-        "K_unit": "network_connectivity",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Управление запасами — модель для анализа Логистика в области Цепочки поставок. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M17",
@@ -1934,22 +1611,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.469,
-        "p_crit": 0.412,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.412
-          }
-        }
+        "p_crit": 0.412
       },
       "translation_map": {
         "p": {
@@ -1966,7 +1628,8 @@
           "industry_term": "Неоднородность",
           "description": "Коэффициент вариации свойств",
           "typical_values": "0.1–0.6"
-        },
+        }
+        ,
         "tau": {
           "industry_term": "Время до каскадного отказа",
           "description": "Среднее время распространения отказа через зависимые подсистемы",
@@ -1983,19 +1646,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Каскадный коллапс режимов — модель для анализа Политология в области Governance. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 30.0,
-        "t0_unit": "days",
-        "tau_physical_range": [
-          30.0,
-          1825.0
-        ],
-        "eta_unit": "instability_index",
-        "K_unit": "institutional_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Каскадный коллапс режимов — модель для анализа Политология в области Governance. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M18",
@@ -2060,16 +1711,7 @@
       "critical_thresholds": {
         "eta_max": 0.38,
         "tau_max": 2.3,
-        "K_min": 0.772,
-        "_dynamic": {
-          "eta_max": {
-            "formula": "K_c * 0.6",
-            "required_inputs": [
-              "K_c"
-            ],
-            "fallback": 0.38
-          }
-        }
+        "K_min": 0.772
       },
       "translation_map": {
         "tau": {
@@ -2098,19 +1740,7 @@
         "delay_tau_hours": 1.8,
         "route_count": 120
       },
-      "description": "Коллективная резонансность — модель для анализа Социология в области Коллективное поведение. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 30.0,
-        "t0_unit": "days",
-        "tau_physical_range": [
-          7.0,
-          730.0
-        ],
-        "eta_unit": "opinion_variance",
-        "K_unit": "social_influence",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Коллективная резонансность — модель для анализа Социология в области Коллективное поведение. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M19",
@@ -2176,22 +1806,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.464,
-        "p_crit": 0.535,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.535
-          }
-        }
+        "p_crit": 0.535
       },
       "translation_map": {
         "p": {
@@ -2225,19 +1840,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Распространение идей — модель для анализа Социология в области Информационные сети. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 30.0,
-        "t0_unit": "days",
-        "tau_physical_range": [
-          7.0,
-          730.0
-        ],
-        "eta_unit": "opinion_variance",
-        "K_unit": "social_influence",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Распространение идей — модель для анализа Социология в области Информационные сети. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M20",
@@ -2303,22 +1906,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.362,
-        "p_crit": 0.509,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.509
-          }
-        }
+        "p_crit": 0.509
       },
       "translation_map": {
         "p": {
@@ -2347,19 +1935,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Сетевые отказы и каскады — модель для анализа Инженерия в области Надёжность систем. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "hours",
-        "tau_physical_range": [
-          0.1,
-          720.0
-        ],
-        "eta_unit": "load_variance",
-        "K_unit": "structural_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Сетевые отказы и каскады — модель для анализа Инженерия в области Надёжность систем. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M21",
@@ -2424,16 +2000,7 @@
       "critical_thresholds": {
         "eta_max": 0.38,
         "tau_max": 2.3,
-        "K_min": 0.766,
-        "_dynamic": {
-          "eta_max": {
-            "formula": "K_c * 0.6",
-            "required_inputs": [
-              "K_c"
-            ],
-            "fallback": 0.38
-          }
-        }
+        "K_min": 0.766
       },
       "translation_map": {
         "tau": {
@@ -2462,19 +2029,7 @@
         "delay_tau_hours": 1.8,
         "route_count": 120
       },
-      "description": "Самоорганизация в AI — модель для анализа Технологии в области ИИ и робототехника. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 0.001,
-        "t0_unit": "seconds",
-        "tau_physical_range": [
-          0.0001,
-          10.0
-        ],
-        "eta_unit": "signal_noise_ratio",
-        "K_unit": "synchronization_gain",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Самоорганизация в AI — модель для анализа Технологии в области ИИ и робототехника. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M22",
@@ -2540,13 +2095,7 @@
         "eta_max": 0.4,
         "tau_max": 2.0,
         "K_min": 0.713,
-        "_dynamic": {
-          "T_crit": {
-            "formula": "K",
-            "required_inputs": ["K"],
-            "fallback": 0.713
-          }
-        }
+        "T_crit": 0.713
       },
       "translation_map": {
         "T": {
@@ -2574,19 +2123,7 @@
         "noise_eta": 0.15,
         "lattice_size": 64
       },
-      "description": "Фазовые переходы в материалах — модель для анализа Материаловедение в области Физика материалов. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "relaxation_times",
-        "tau_physical_range": [
-          0.01,
-          100.0
-        ],
-        "eta_unit": "disorder_fraction",
-        "K_unit": "exchange_integral_ratio",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Фазовые переходы в материалах — модель для анализа Материаловедение в области Физика материалов. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M23",
@@ -2680,19 +2217,7 @@
         "delay_tau": 4.1,
         "description": "Лаг в единицах времени"
       },
-      "description": "Турбулентность и потоки — модель для анализа Физика в области Гидродинамика. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "abstract_time",
-        "tau_physical_range": [
-          0.1,
-          20.0
-        ],
-        "eta_unit": "noise_fraction",
-        "K_unit": "coupling_constant",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Турбулентность и потоки — модель для анализа Физика в области Гидродинамика. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M24",
@@ -2785,19 +2310,7 @@
         "interaction": 0.5,
         "noise_eta": 0.2
       },
-      "description": "Иммунный баланс — модель для анализа Биология в области Иммунология. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "generations",
-        "tau_physical_range": [
-          0.5,
-          50.0
-        ],
-        "eta_unit": "fitness_noise",
-        "K_unit": "interaction_strength",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Иммунный баланс — модель для анализа Биология в области Иммунология. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M25",
@@ -2891,19 +2404,7 @@
         "delay_tau": 4.1,
         "description": "Лаг в единицах времени"
       },
-      "description": "Обратные связи в климате — модель для анализа Экология в области Климатология. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "years",
-        "tau_physical_range": [
-          0.5,
-          100.0
-        ],
-        "eta_unit": "environmental_variance",
-        "K_unit": "competition_coefficient",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Обратные связи в климате — модель для анализа Экология в области Климатология. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M26",
@@ -2968,14 +2469,7 @@
       "critical_thresholds": {
         "eta_max": 0.5,
         "tau_max": 4.5,
-        "K_min": 0.407,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "required_inputs": ["mean_k"],
-            "fallback": 0.129
-          }
-        }
+        "K_min": 0.407
       },
       "translation_map": {
         "tau": {
@@ -3003,19 +2497,7 @@
         "current_lead_time": 7.0,
         "old_safety_stock_coef": 0.2
       },
-      "description": "Институциональная устойчивость — модель для анализа Политология в области Социальные системы. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 30.0,
-        "t0_unit": "days",
-        "tau_physical_range": [
-          30.0,
-          1825.0
-        ],
-        "eta_unit": "instability_index",
-        "K_unit": "institutional_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Институциональная устойчивость — модель для анализа Политология в области Социальные системы. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M27",
@@ -3108,19 +2590,7 @@
         "interaction": 0.5,
         "noise_eta": 0.2
       },
-      "description": "Автокаталитические процессы — модель для анализа Химия в области Химическая кинетика. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "reaction_times",
-        "tau_physical_range": [
-          0.05,
-          10.0
-        ],
-        "eta_unit": "concentration_variance",
-        "K_unit": "rate_constant_ratio",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Автокаталитические процессы — модель для анализа Химия в области Химическая кинетика. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M28",
@@ -3185,14 +2655,7 @@
       "critical_thresholds": {
         "eta_max": 0.5,
         "tau_max": 4.5,
-        "K_min": 0.59,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "required_inputs": ["mean_k"],
-            "fallback": 0.129
-          }
-        }
+        "K_min": 0.59
       },
       "translation_map": {
         "tau": {
@@ -3220,19 +2683,7 @@
         "current_lead_time": 7.0,
         "old_safety_stock_coef": 0.2
       },
-      "description": "Орбитальная стабильность — модель для анализа Астрономия в области Космическая динамика. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 365.25,
-        "t0_unit": "days",
-        "tau_physical_range": [
-          10.0,
-          100000.0
-        ],
-        "eta_unit": "orbital_perturbation",
-        "K_unit": "gravitational_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Орбитальная стабильность — модель для анализа Астрономия в области Космическая динамика. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M29",
@@ -3297,16 +2748,7 @@
       "critical_thresholds": {
         "eta_max": 0.38,
         "tau_max": 2.3,
-        "K_min": 0.628,
-        "_dynamic": {
-          "eta_max": {
-            "formula": "K_c * 0.6",
-            "required_inputs": [
-              "K_c"
-            ],
-            "fallback": 0.38
-          }
-        }
+        "K_min": 0.628
       },
       "translation_map": {
         "tau": {
@@ -3335,19 +2777,7 @@
         "delay_tau_hours": 1.8,
         "route_count": 120
       },
-      "description": "Синхронизация распределённых систем — модель для анализа Инженерия в области Сложные системы. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "hours",
-        "tau_physical_range": [
-          0.1,
-          720.0
-        ],
-        "eta_unit": "load_variance",
-        "K_unit": "structural_coupling",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Синхронизация распределённых систем — модель для анализа Инженерия в области Сложные системы. Применима для кросс-дисциплинарных инвариантов."
     },
     {
       "id": "M30",
@@ -3414,22 +2844,7 @@
         "eta_max": 0.5,
         "tau_max": 7.0,
         "K_min": 0.357,
-        "p_crit": 0.424,
-        "_dynamic": {
-          "p_crit": {
-            "formula": "1 / mean_k",
-            "topology_conditions": {
-              "erdos_renyi": "1 / mean_k",
-              "scale_free": "mean_k / (mean_k_sq - mean_k)",
-              "regular_grid": 0.5927,
-              "small_world": "1 / (mean_k * (1 - clustering_coef))"
-            },
-            "required_inputs": [
-              "mean_k"
-            ],
-            "fallback": 0.424
-          }
-        }
+        "p_crit": 0.424
       },
       "translation_map": {
         "p": {
@@ -3458,25 +2873,7 @@
         "noise_eta": 0.38,
         "tau_lag_months": 6.8
       },
-      "description": "Метастабильность и критические переходы — модель для анализа Междисциплинарно в области Общие сложные системы. Применима для кросс-дисциплинарных инвариантов.",
-      "dimensional_basis": {
-        "t0_value": 1.0,
-        "t0_unit": "abstract_units",
-        "tau_physical_range": [
-          0.1,
-          100.0
-        ],
-        "eta_unit": "dimensionless",
-        "K_unit": "coupling_constant",
-        "_source": "migrate_mgap_registry.py v4.7",
-        "_note": "Размерный базис: tau_abstract * t0_value = tau_real в t0_unit. tau_physical_range — допустимый физический диапазон для этой модели."
-      }
+      "description": "Метастабильность и критические переходы — модель для анализа Междисциплинарно в области Общие сложные системы. Применима для кросс-дисциплинарных инвариантов."
     }
-  ],
-  "_migration": {
-    "version": "v4.7",
-    "migrated_at": "2026-06-10T05:18:05.113582+00:00",
-    "changes_count": 45,
-    "script": "tools/migrate_mgap_registry.py"
-  }
+  ]
 }
