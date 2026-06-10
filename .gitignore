@@ -70,3 +70,4 @@ llama-server
 local_provider_config.json
 llama_cpu.log
 .continue
+backups
