@@ -1,3 +1,8 @@
+# SUPERSEDED — do not use. This 4D-vector + flat-threshold (0.7) approach
+# produces a degenerate hairball graph (94.5% of pairs similar > 0.7, 5160
+# edges on a dense corpus). See tools/rebuild_graph_knn.py instead.
+# Kept for historical reference only.
+
 import json
 import numpy as np
 import networkx as nx

@@ -77,21 +77,48 @@ for r in results:
 
 ---
 
-## Интеграция в hxam_v_4_server.py
+## Интеграция в hxam_v_4_server.py (актуально, v4.7)
 
-Добавить три строки в `hxam_v_4_server.py` (после импортов MGAPMatcher):
+**Важно:** описанный ниже вариант с `app.include_router(mgap_router)` **не применён** в
+`hxam_v_4_server.py` и не является текущей интеграцией — оставлен только как справка о том, что
+доступно как отдельный инструмент (см. следующий раздел). Реально сервер интегрирован с MGAP через
+`mgap_matcher.py`: это facade-класс `MGAPMatcher`, который сам грузит `mgap_registry.json` и
+переиспользует четыре расчётных компонента напрямую из `mgap_lib.engine`:
 
 ```python
-# MGAP Library v1.0
+from mgap_lib.engine.dimensional_normalizer import DimensionalNormalizer
+from mgap_lib.engine.threshold_calculator   import ThresholdCalculator
+from mgap_lib.engine.topology_validator     import TopologyValidator
+from mgap_lib.engine.falsification_engine   import FalsificationEngine
+```
+
+`hxam_v_4_server.py` импортирует `from mgap_matcher import MGAPMatcher` и вызывает
+`match_artifact()`/`match_batch()`/`get_registry_summary()` на нём напрямую — эндпоинты
+`/mgap/match/{id}`, `/mgap/registry`, `/mgap/batch` объявлены прямо в `hxam_v_4_server.py`, а не
+через роутер из `mgap_lib`.
+
+## Автономный набор mgap_lib (не подключён к серверу)
+
+Остальная часть библиотеки — `MGAPEngine` (`mgap_lib/engine/matcher.py`), `registry.py`,
+`domain_classifier.py`, `gap_calculator.py`, SQLAlchemy-модели (`mgap_lib/models/database.py`) и
+FastAPI-роутер (`mgap_lib/api/routes.py`) — существует как самостоятельный инструментарий,
+доступный через CLI (`mgap_lib/cli/mgap_cli.py`, см. «Быстрый старт» выше) или прямой импорт из
+Python, но **не смонтирован** в `hxam_v_4_server.py`. Если понадобится persistent история матчей
+через БД (эндпоинт `/mgap/runs`) или REST-доступ к UNESCO-таксономии — тогда стоит добавить:
+
+```python
+# После создания FastAPI app:
 from mgap_lib.api.routes import mgap_router
 from mgap_lib.api.dependencies import init_engine as mgap_init_engine
 
-# После создания FastAPI app:
 mgap_init_engine(registry_path="mgap_registry.json", artifacts_dir="artifacts")
 app.include_router(mgap_router)
 ```
 
-После этого доступны новые эндпоинты:
+но учти, что это добавит **второй, независимый** движок матчинга (`MGAPEngine`) параллельно с уже
+работающим `MGAPMatcher` — не замену, а дублирование, если оба будут отвечать на похожие запросы.
+
+Полный список эндпоинтов, которые появятся при таком подключении:
 
 | Метод | Путь | Описание |
 |-------|------|----------|

@@ -1,3 +1,8 @@
+# SUPERSEDED — do not use. Same flaw as tools/archive/rebuild_graph_clean.py:
+# 4D-vector cosine similarity with a flat threshold (0.7) produces a
+# near-complete-clique graph on a dense corpus. See tools/rebuild_graph_knn.py
+# instead. Kept for historical reference only.
+
 import json
 import numpy as np
 from pathlib import Path

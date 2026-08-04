@@ -1,4 +1,10 @@
 # tools/restore_graph.py — HX-AM v4.2
+#
+# SUPERSEDED — do not use. Fixed the data source (text embeddings instead of
+# 4D vectors) but kept a flat similarity threshold, which still produces
+# thousands of edges on a dense corpus. tools/rebuild_graph_knn.py adds k-NN
+# capping on top of this same data source and is the correct tool now.
+# Kept for historical reference only.
 """
 Восстанавливает invariant_graph.json из артефактов + semantic_index.
 
@@ -31,7 +37,7 @@ from collections import Counter
 import numpy as np
 from scipy.spatial.distance import cosine as scipy_cosine
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # tools/archive/ → project root
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("restore_graph")
