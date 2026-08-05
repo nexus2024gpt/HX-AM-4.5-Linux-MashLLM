@@ -124,6 +124,38 @@ def _resonance_fallback(flat: Dict, model: Dict) -> float:
     return round(score / max(total, 1e-9), 3)
 
 
+def _format_blind_spot(template: str, model: Dict, thresholds: Dict,
+                       flat: Optional[Dict] = None) -> str:
+    """
+    Подставляет пороги в blind_spot_template.
+
+    Реестр v5.0 перешёл на плейсхолдеры {eta_crit}/{tau_crit}/{p_crit}/
+    {K_min}/{T_crit}; отдаём и их, и legacy {eta_max}/{tau_max}, чтобы
+    работали шаблоны обеих схем. Неизвестный плейсхолдер не должен ронять
+    матчинг — возвращаем шаблон как есть (так же ведёт себя рабочий
+    mgap_matcher.py).
+    """
+    if not template:
+        return template
+    ct   = model.get("critical_thresholds") or {}
+    flat = flat or {}
+    eta_crit = thresholds.get("eta_critical", ct.get("eta_max", 0.5))
+    tau_crit = thresholds.get("tau_robustness", ct.get("tau_max", 5.0))
+    try:
+        return template.format(
+            eta_crit=round(eta_crit, 3),
+            tau_crit=round(tau_crit, 3),
+            p_crit=round(ct.get("p_crit", 0.37), 3),
+            K_min=round(ct.get("K_min", 0.0), 3),
+            T_crit=round(ct.get("T_crit", 0.0), 3),
+            eta_max=round(eta_crit, 3),
+            tau_max=round(tau_crit, 3),
+            p=round(flat.get("p", 0.5), 3),
+        )
+    except (KeyError, IndexError):
+        return template
+
+
 def _extract_thresholds(artifact: Dict, model: Dict) -> Dict:
     sim   = artifact.get("simulation") or {}
     ver   = artifact.get("data", {}).get("ver", {}) or {}
@@ -458,9 +490,8 @@ class MGAPEngine:
         translation = self._translate_params(flat, thresholds, model)
 
         # Слепая зона
-        raw_blind = (model.get("blind_spot_template") or "").format(
-            eta_max=thresholds["eta_critical"],
-            tau_max=thresholds["tau_robustness"],
+        raw_blind = _format_blind_spot(
+            model.get("blind_spot_template") or "", model, thresholds, flat
         )
         blind_spot = self._improve_blind_spot(raw_blind, model)
 
@@ -470,7 +501,7 @@ class MGAPEngine:
         calculation  = _calculate_example(model, thresholds)
 
         # Вердикт
-        verdict = self._build_verdict(model, gap_obj, resonance, thresholds)
+        verdict = self._build_verdict(model, gap_obj, resonance, thresholds, flat)
 
         # Краткая сводка артефакта
         gen      = artifact.get("data", {}).get("gen", {})
@@ -550,7 +581,8 @@ class MGAPEngine:
             pass
         return template
 
-    def _build_verdict(self, model: Dict, gap: GapComponents, resonance: float, thresholds: Dict) -> Dict:
+    def _build_verdict(self, model: Dict, gap: GapComponents, resonance: float,
+                       thresholds: Dict, flat: Optional[Dict] = None) -> Dict:
         warn = gap.is_warning
         prog = (model.get("programs") or ["target_system"])[0]
         if warn:
@@ -575,9 +607,9 @@ class MGAPEngine:
             "for_business": {
                 "summary":         (f"Артефакт резонирует с моделью «{model.get('name')}» "
                                     f"({model.get('logia')}, resonance={resonance:.2f})."),
-                "blind_spot":      (model.get("blind_spot_template") or "—").format(
-                                       eta_max=thresholds["eta_critical"],
-                                       tau_max=thresholds["tau_robustness"]),
+                "blind_spot":      _format_blind_spot(
+                                       model.get("blind_spot_template") or "—",
+                                       model, thresholds, flat),
                 "recommendation":  biz_rec,
                 "stability_score": thresholds.get("stability_score", "—"),
                 "estimated_roi":   "Снижение риска каскадных отказов на 15–25%",

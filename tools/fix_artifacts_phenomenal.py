@@ -15,7 +15,12 @@ CLI:
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
+
+# sys.path[0] — это tools/, поэтому корень проекта нужно добавить явно,
+# иначе `from response_normalizer import DOMAIN_MAP` молча не резолвится
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("fix_phenomenal")
@@ -53,6 +58,67 @@ def _is_template_4d(four_d: dict) -> bool:
     return total > 0 and matches == total
 
 
+def _domain_stems(domain: str) -> list:
+    """
+    Основы для поиска домена в тексте: сам слаг + русские варианты.
+
+    Домены хранятся английскими слагами ('materials_science'), а гипотезы
+    написаны по-русски, поэтому буквальный поиск слага не находит ничего
+    никогда. Проверено на корпусе: слаг встречается в 0 из 78 PHENOMENAL,
+    русский корень — в 38 из 78. Без этой нормализации критерий понижает
+    100% артефактов и не несёт никакой информации.
+    """
+    d = (domain or "").strip().lower()
+    stems = {d, d.replace("_", " ")}
+    for ru, en in _RU_BY_EN.get(d, []):
+        stems.add(ru)
+    return [s for s in stems if len(s) >= 4]
+
+
+# Домены корпуса, которых нет в DOMAIN_MAP response_normalizer'а.
+# Без них критерий ложно срабатывает: materials_science встречается
+# в 18 связях PHENOMENAL-артефактов, robotics — в 17.
+_RU_SUPPLEMENT = {
+    "materials_science": ["материал"],
+    "robotics":          ["робот"],
+    "engineering":       ["инженер"],
+    "oceanography":      ["океан"],
+    "computer_science":  ["вычислит", "информатик"],
+    "cognitive_science": ["когнитив"],
+    "immunology":        ["иммун"],
+    "sociolinguistics":  ["социолингв"],
+    "political_science": ["политол"],
+    "systems_theory":    ["системолог"],
+}
+
+
+def _build_ru_index() -> dict:
+    """English-слаг → русские основы, из общего словаря проекта + дополнения."""
+    out = {}
+    try:
+        from response_normalizer import DOMAIN_MAP
+    except Exception:
+        DOMAIN_MAP = {}
+    for ru, en in DOMAIN_MAP.items():
+        if not _is_cyrillic(ru):
+            continue
+        # усечённая основа, чтобы ловить словоформы:
+        # 'биология' → 'биолог', 'физика' → 'физи'
+        stem = ru[:-2] if len(ru) > 6 else ru[:-1] if len(ru) > 4 else ru
+        out.setdefault(en, []).append((stem, en))
+    for en, stems in _RU_SUPPLEMENT.items():
+        for s in stems:
+            out.setdefault(en, []).append((s, en))
+    return out
+
+
+def _is_cyrillic(s: str) -> bool:
+    return any("а" <= ch <= "я" or ch == "ё" for ch in s.lower())
+
+
+_RU_BY_EN = _build_ru_index()
+
+
 def _cross_domain_in_text(cross_domain_links: list, hypothesis: str, mechanism: str) -> bool:
     if not cross_domain_links:
         return False
@@ -63,8 +129,9 @@ def _cross_domain_in_text(cross_domain_links: list, hypothesis: str, mechanism: 
             if sep in link:
                 parts = link.split(sep, 1)
                 d1, d2 = parts[0].strip().lower(), parts[1].strip().lower()
-                if d1 in full_text or d2 in full_text:
-                    return True
+                for dom in (d1, d2):
+                    if any(stem in full_text for stem in _domain_stems(dom)):
+                        return True
     return False
 
 

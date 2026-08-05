@@ -224,11 +224,14 @@ def test_registry():
     check("Loaded > 0 models", len(models) > 0, f"got {len(models)}")
     check("Loaded >= 11 models", len(models) >= 11, f"got {len(models)}")
 
-    m1 = reg.get_by_id("M1")
-    check("get_by_id('M1') found",    m1 is not None)
-    check("M1 has name",              m1 is not None and bool(m1.get("name")))
-    check("M1 has four_d_matrix",     m1 is not None and m1.get("four_d_matrix") is not None)
-    check("M1 has critical_thresholds", m1 is not None and m1.get("critical_thresholds") is not None)
+    # id берём из самого реестра, а не хардкодим: нумерация уже менялась
+    # (M1 → M01 в реестре v5.0), и тест не должен падать от переименования
+    first_id = models[0].get("id")
+    m1 = reg.get_by_id(first_id)
+    check(f"get_by_id({first_id!r}) found", m1 is not None)
+    check("model has name",               m1 is not None and bool(m1.get("name")))
+    check("model has four_d_matrix",      m1 is not None and m1.get("four_d_matrix") is not None)
+    check("model has critical_thresholds", m1 is not None and m1.get("critical_thresholds") is not None)
 
     kur = reg.get_by_math_type("kuramoto")
     check("kuramoto models > 0", len(kur) > 0, f"got {len(kur)}")
