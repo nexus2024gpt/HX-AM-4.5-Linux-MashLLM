@@ -40,7 +40,12 @@ logger = logging.getLogger("rebuild_knn")
 PROJECT_ROOT   = Path(__file__).parent.parent
 ARTIFACTS_DIR  = PROJECT_ROOT / "artifacts"
 SEM_INDEX_PATH = ARTIFACTS_DIR / "semantic_index.jsonl"
+FOUR_D_INDEX_PATH = ARTIFACTS_DIR / "four_d_index.jsonl"
 GRAPH_PATH     = ARTIFACTS_DIR / "invariant_graph.json"
+
+# sys.path[0] — это tools/, а не корень проекта, поэтому `from schemas...`
+# без этого не резолвится и 4D-резонанс молча деградирует в 0.0.
+sys.path.insert(0, str(PROJECT_ROOT))
 
 _DOMAIN_MAP = {
     "социология": "sociology", "психология": "psychology",
@@ -95,6 +100,28 @@ def load_artifacts():
     return result
 
 
+def load_four_d_vectors():
+    """4D-векторы из four_d_index.jsonl — нужны для four_d_resonance на рёбрах."""
+    if not FOUR_D_INDEX_PATH.exists():
+        logger.warning(f"  four_d_index.jsonl не найден: {FOUR_D_INDEX_PATH} — резонанс будет 0.0")
+        return {}
+    result = {}
+    with open(FOUR_D_INDEX_PATH, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                o = json.loads(line)
+            except Exception:
+                continue
+            vid, vec = o.get("id"), o.get("vector")
+            if vid and vec:
+                result[vid] = np.asarray(vec, dtype=np.float64)
+    logger.info(f"  Загружено {len(result)} 4D-векторов")
+    return result
+
+
 def load_embeddings():
     if not SEM_INDEX_PATH.exists():
         logger.error(f"  semantic_index.jsonl не найден: {SEM_INDEX_PATH}")
@@ -130,7 +157,21 @@ def load_embeddings():
     return result, model
 
 
-def build_knn_graph(artifacts, embeddings, st_model, k, sim_floor):
+def compute_edge_resonance(four_d_vecs, nid_i, nid_j):
+    """4D-резонанс пары узлов; 0.0 если вектора нет или расчёт не удался."""
+    va, vb = four_d_vecs.get(nid_i), four_d_vecs.get(nid_j)
+    if va is None or vb is None:
+        return 0.0
+    try:
+        from schemas.four_d_matrix import compute_4d_resonance
+        return float(compute_4d_resonance(va, vb))
+    except Exception as e:
+        logger.warning(f"  резонанс {nid_i}~{nid_j} не посчитан: {e}")
+        return 0.0
+
+
+def build_knn_graph(artifacts, embeddings, st_model, k, sim_floor, four_d_vecs=None):
+    four_d_vecs = four_d_vecs or {}
     valid_ids = sorted(set(artifacts.keys()) & set(embeddings.keys()))
     logger.info(f"  Узлов: {len(valid_ids)}")
 
@@ -176,14 +217,21 @@ def build_knn_graph(artifacts, embeddings, st_model, k, sim_floor):
             spec_i   = artifacts[nid_i].get("specificity", 0.5)
             spec_j   = artifacts[nid_j].get("specificity", 0.5)
             avg_spec = (spec_i + spec_j) / 2
-            weight   = round(sim * (1 + dist) * avg_spec, 4)
+            base_weight = sim * (1 + dist) * avg_spec
+
+            # 4D-резонанс + буст веса — идентично InvariantGraph.add_edge()
+            # в invariant_engine.py, иначе рёбра от пересборки и от живого
+            # пайплайна получают несопоставимые веса.
+            resonance = compute_edge_resonance(four_d_vecs, nid_i, nid_j)
+            weight = round(base_weight * (1.0 + resonance * 0.2), 4)
+
             edges[key] = {
                 "source":           nid_i,
                 "target":           nid_j,
                 "similarity":       round(sim, 4),
                 "domain_distance":  dist,
                 "specificity":      round(avg_spec, 4),
-                "four_d_resonance": 0.0,
+                "four_d_resonance": resonance,
                 "weight":           weight,
             }
 
@@ -277,8 +325,12 @@ def main():
     print("\n🧠 Эмбеддинги...")
     embeddings, st_model = load_embeddings()
 
+    print("\n📐 4D-векторы...")
+    four_d_vecs = load_four_d_vectors()
+
     print(f"\n🕸️  Строим граф...")
-    graph_data = build_knn_graph(artifacts, embeddings, st_model, args.k, args.floor)
+    graph_data = build_knn_graph(artifacts, embeddings, st_model, args.k, args.floor,
+                                 four_d_vecs=four_d_vecs)
 
     print_stats(graph_data)
 

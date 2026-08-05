@@ -106,3 +106,16 @@ backup is the Google Drive sync mirror of the whole working directory, with no v
 `tools/archive/restore_graph.py`) are archived and documented as superseded in their own headers —
 both produce a degenerate near-complete-clique graph on a dense corpus; `rebuild_graph_knn.py`'s
 k-NN capping is what avoids that.
+
+**Edge weight must stay consistent across both edge-creation paths.** Edges get
+`weight = similarity × (1 + domain_distance) × specificity × (1 + four_d_resonance × 0.2)`.
+Two places compute this and they must not drift: `InvariantGraph.add_edge()` in
+`invariant_engine.py` (live pipeline) and `build_knn_graph()` in `tools/rebuild_graph_knn.py`
+(bulk rebuild). The rebuild tool used to hardcode `four_d_resonance: 0.0`, which silently cost
+those edges up to 20% of their weight — fixed 2026-08-05, with `tools/repair_edge_resonance.py`
+available to recompute resonance/weight on an existing graph without touching topology.
+
+**Deleting an artifact touches four stores, and the API only handles three.**
+`DELETE /artifact/{id}` moves the file to `trash/` and cleans the graph + `semantic_index.jsonl`,
+but leaves `four_d_index.jsonl` behind. Use `tools/purge_artifacts.py` for a consistent removal
+(`--orphans` also sweeps graph/index entries whose artifact file is already gone).
