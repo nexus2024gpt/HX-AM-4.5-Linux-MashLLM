@@ -78,3 +78,5 @@ llama_cpu.log
 *.log.[0-9].gz
 .continue
 backups
+# Локальная оснастка Claude Code (навыки-проверки): к проекту не относится
+.claude/
