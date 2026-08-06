@@ -73,5 +73,8 @@ models
 llama-server
 local_provider_config.json
 llama_cpu.log
+# Ротированные логи (logrotate, /etc/logrotate.d/hxam): .1, .2.gz и т.д.
+*.log.[0-9]
+*.log.[0-9].gz
 .continue
 backups
